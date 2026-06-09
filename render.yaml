@@ -1,0 +1,15 @@
+services:
+  - type: worker          # 背景工作服務（不需要 HTTP port）
+    name: py-optimizer-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python telegram_bot.py
+    plan: free            # 可改為 starter 取得更好效能
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false       # 在 Render Dashboard 手動填入
+      - key: NVIDIA_API_KEY
+        sync: false       # 在 Render Dashboard 手動填入
+      - key: NVIDIA_MODEL
+        value: nvidia/llama-3.1-nemotron-70b-instruct
+    autoDeploy: true      # 推送到 GitHub 自動重新部署
