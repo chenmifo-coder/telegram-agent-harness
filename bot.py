@@ -131,6 +131,10 @@ async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ── 主程式：使用 PTB 內建 webhook server ──────────────────
 def main():
+    # Python 3.14 不再自動建立 event loop，需手動設定
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     conv = ConversationHandler(
