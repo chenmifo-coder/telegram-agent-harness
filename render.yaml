@@ -1,0 +1,13 @@
+services:
+  - type: worker          # 背景 worker，非 web server，免費方案可用
+    name: telegram-agent-harness
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false       # 在 Render 控制台手動填入
+      - key: NVIDIA_API_KEY
+        sync: false       # 在 Render 控制台手動填入
+      - key: PYTHON_VERSION
+        value: "3.11.0"
