@@ -1,6 +1,6 @@
 """
 Telegram Agent Harness — 雲端 Python 程式優化機器人
-部署平台: Render (免費方案)
+部署平台: Render Free Web Service (Webhook 模式)
 LLM: NVIDIA API (llama-3.1-405b-instruct)
 """
 
@@ -8,7 +8,8 @@ import os
 import io
 import asyncio
 import logging
-from telegram import Update, Document
+from flask import Flask, request
+from telegram import Update, Document, Bot
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     ConversationHandler, filters, ContextTypes
@@ -21,15 +22,17 @@ logger = logging.getLogger(__name__)
 # ── 環境變數 ────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 NVIDIA_API_KEY  = os.environ["NVIDIA_API_KEY"]
+RENDER_URL      = os.environ["RENDER_URL"]          # 例：https://your-app.onrender.com
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL    = "meta/llama-3.1-405b-instruct"   # 可換 mistralai/mixtral-8x22b-instruct
+NVIDIA_MODEL    = "meta/llama-3.1-405b-instruct"
 
 # ConversationHandler 狀態
 WAIT_FILE, WAIT_PROMPT = range(2)
 
+flask_app = Flask(__name__)
+
 # ── NVIDIA API 呼叫 ─────────────────────────────────────────
 async def call_nvidia(system_prompt: str, user_content: str) -> str:
-    """呼叫 NVIDIA NIM API，回傳模型回應文字。"""
     headers = {
         "Authorization": f"Bearer {NVIDIA_API_KEY}",
         "Content-Type": "application/json",
@@ -77,7 +80,6 @@ SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 ## 主要改動
 - 改動 1：原因
 - 改動 2：原因
-...
 
 ## 效能預估
 (與原版比較的預期改善)
@@ -88,19 +90,10 @@ SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 """
 
 async def run_agent(code: str, prompt: str) -> tuple[str, str]:
-    """執行 Agent Harness，回傳 (優化程式碼, 優化報告)。"""
-    user_content = f"""## 需求描述
-{prompt}
-
-## 原始程式碼
-```python
-{code}
-```
-"""
+    user_content = f"""## 需求描述\n{prompt}\n\n## 原始程式碼\n```python\n{code}\n```"""
     raw = await call_nvidia(SYSTEM_PROMPT, user_content)
 
-    # 解析輸出
-    code_out, report_out = raw, raw
+    code_out = report_out = raw
     if "---OPTIMIZED_CODE---" in raw and "---END_CODE---" in raw:
         code_out = raw.split("---OPTIMIZED_CODE---")[1].split("---END_CODE---")[0].strip()
     if "---OPTIMIZATION_REPORT---" in raw and "---END_REPORT---" in raw:
@@ -117,7 +110,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "1️⃣ 傳送你的 `.py` 檔案\n"
         "2️⃣ 輸入優化需求（中英文皆可）\n"
         "3️⃣ 等待優化後的檔案與報告\n\n"
-        "輸入 /cancel 可取消當前操作。",
+        "輸入 /cancel 可取消。",
         parse_mode="Markdown"
     )
     return ConversationHandler.END
@@ -129,7 +122,6 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ 請上傳 .py 檔案。")
         return WAIT_FILE
 
-    # 下載檔案內容
     tg_file = await doc.get_file()
     buf = io.BytesIO()
     await tg_file.download_to_memory(buf)
@@ -140,8 +132,8 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except UnicodeDecodeError:
         code_str = code_bytes.decode("latin-1")
 
-    ctx.user_data["code"]      = code_str
-    ctx.user_data["filename"]  = doc.file_name
+    ctx.user_data["code"]     = code_str
+    ctx.user_data["filename"] = doc.file_name
 
     await update.message.reply_text(
         f"✅ 已收到 `{doc.file_name}`（{len(code_str)} 字元）\n\n"
@@ -176,7 +168,6 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     await thinking_msg.delete()
 
-    # 回傳優化後 .py
     opt_fname = fname.replace(".py", "_optimized.py")
     code_io   = io.BytesIO(opt_code.encode("utf-8"))
     code_io.name = opt_fname
@@ -186,13 +177,8 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         caption="✅ 優化完成！以下是報告 👇",
     )
 
-    # 回傳文字報告（超過 4096 字自動切割）
-    max_len = 4000
-    for i in range(0, len(report), max_len):
-        await update.message.reply_text(
-            report[i : i + max_len],
-            parse_mode="Markdown"
-        )
+    for i in range(0, len(report), 4000):
+        await update.message.reply_text(report[i:i+4000], parse_mode="Markdown")
 
     ctx.user_data.clear()
     return ConversationHandler.END
@@ -204,12 +190,8 @@ async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE):
-    logger.error("Update 發生錯誤", exc_info=ctx.error)
-
-
-# ── 主程式 ──────────────────────────────────────────────────
-def main():
+# ── Application 建立（全域單例） ────────────────────────────
+def build_app() -> Application:
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     conv = ConversationHandler(
@@ -219,16 +201,42 @@ def main():
             WAIT_PROMPT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prompt)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        per_chat=True,
     )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help",  start))
     app.add_handler(conv)
-    app.add_error_handler(error_handler)
+    return app
 
-    logger.info("Bot 啟動中...")
-    app.run_polling(drop_pending_updates=True)
+
+tg_app = build_app()
+
+
+# ── Flask Webhook 端點 ──────────────────────────────────────
+@flask_app.route(f"/webhook/{TELEGRAM_TOKEN}", methods=["POST"])
+def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, tg_app.bot)
+    asyncio.run(tg_app.process_update(update))
+    return "ok", 200
+
+
+@flask_app.route("/health")
+def health():
+    return "ok", 200
+
+
+# ── 啟動時自動設定 Webhook ──────────────────────────────────
+async def set_webhook():
+    await tg_app.bot.set_webhook(
+        url=f"{RENDER_URL}/webhook/{TELEGRAM_TOKEN}",
+        allowed_updates=["message"],
+    )
+    logger.info("Webhook 設定完成")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(set_webhook())
+    port = int(os.environ.get("PORT", 10000))
+    flask_app.run(host="0.0.0.0", port=port)
