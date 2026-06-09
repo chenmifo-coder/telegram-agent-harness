@@ -5,6 +5,7 @@ Telegram Bot — Python 程式碼優化機器人
 
 import os
 import io
+import httpx
 import logging
 import asyncio
 from pathlib import Path
