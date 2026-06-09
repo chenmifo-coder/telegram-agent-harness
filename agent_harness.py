@@ -6,7 +6,6 @@ Agent Harness — NVIDIA API 驅動的 Python 程式優化引擎
 import os
 import json
 import httpx
-import asyncio
 from dataclasses import dataclass
 from typing import Optional
 
@@ -178,15 +177,15 @@ def format_changes_report(result: OptimizationResult) -> str:
     impact_emoji = {"high": "🔴", "medium": "🟡", "low": "🟢"}
     
     lines = [
-        f"✅ *優化完成*",
-        f"",
+        "✅ *優化完成*",
+        "",
         f"📋 *摘要*: {result.summary}",
-        f"",
-        f"📊 *程式碼統計*",
+        "",
+        "📊 *程式碼統計*",
         f"  原始行數: `{result.metrics.get('original_lines', '?')}` 行",
         f"  優化後: `{result.metrics.get('optimized_lines', '?')}` 行",
         f"  預估改善: {result.metrics.get('estimated_improvement', '?')}",
-        f"",
+        "",
         f"🔧 *優化項目* ({len(result.changes)} 項):",
     ]
     
