@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: Trigger Render Deploy
         run: |
-          curl -s -X POST "${{ https://api.render.com/sync/exs-d8jrdtd8nd3s73a4qjo0?key=_sttFmGzIPM }}" \
+          curl -s -X POST "https://api.render.com/sync/exs-d8jrdtd8nd3s73a4qjo0?key=_sttFmGzIPM" \
             -H "Content-Type: application/json" \
             --fail
           echo "🚀 已觸發 Render 部署"
