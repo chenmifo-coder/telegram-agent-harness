@@ -2,6 +2,8 @@
 Telegram Agent Harness — Render Free Web Service
 修正：多模型 fallback + 詳細錯誤回報
 """
+import os
+from openai import OpenAI
 import os, io, logging, asyncio
 from telegram import Update, Document
 from telegram.ext import (
@@ -18,15 +20,34 @@ NVIDIA_API_KEY  = os.environ["NVIDIA_API_KEY"]
 RENDER_URL      = os.environ["RENDER_URL"].rstrip("/")
 PORT            = int(os.environ.get("PORT", 10000))
 
+# 防呆機制：如果抓不到 Key，直接終止程式並給予明確提示
+if not api_key:
+    raise ValueError("啟動失敗：找不到 NVIDIA_API_KEY！請檢查 Render 的 Environment 標籤頁設定。")
+
 # 按優先順序 fallback，確保至少一個可用
 NVIDIA_MODELS = [
-    "meta/llama-3.1-405b-instruct",
-    "meta/llama-3.1-70b-instruct",
-    "mistralai/mistral-large-3-675b-instruct-2512",
-    "nvidia/llama-3.3-nemotron-super-49b-v1",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia/nemotron-4-340b-instruct",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3-nano-30b-a3b",
 ]
 
 WAIT_FILE, WAIT_PROMPT = range(2)
+
+# 參數配置工廠 (處理特定模型的專屬參數)
+def get_model_kwargs(model_name: str) -> dict:
+    """根據模型名稱動態分配專屬參數，避免參數不相容導致報錯"""
+    if model_name == "nvidia/nemotron-3-ultra-550b-a55b":
+        # 只有 Ultra 版本需要 reasoning 參數
+        return {
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": True}, "reasoning_budget": 8192},
+            "max_tokens": 16384 # Ultra 支援極大輸出
+        }
+    
+    # 其他一般 instruct 模型，帶入標準安全參數
+    return {
+        "max_tokens": 4096 # 一般模型建議設為標準安全值，避免超出上限報錯
+    }
 
 # ── NVIDIA API（自動 fallback）─────────────────────────────
 async def call_nvidia(system_prompt: str, user_content: str) -> tuple[str, str]:
