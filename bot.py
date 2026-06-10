@@ -127,6 +127,13 @@ async def run_agent(code: str, prompt: str) -> tuple[str, str, str]:
     return code_out, report_out, model
 
 # ── Handlers ───────────────────────────────────────────────
+# ── 3. 新增：取消操作的 Handler ─────────────────────────────
+async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """使用者輸入 /cancel 時觸發，清除狀態並結束對話"""
+    ctx.user_data.clear()
+    await update.message.reply_text("🚫 操作已取消。您可以隨時重新上傳檔案。")
+    return ConversationHandler.END
+
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 *Python 程式優化 Agent*\n\n"
