@@ -29,9 +29,9 @@ if not NVIDIA_API_KEY:
 # 模型 fallback 列表（依優先順序）
 # 僅列出 NVIDIA 免費方案實際可用的模型（已驗證 2026-06）
 NVIDIA_MODELS: list[str] = [
-    "nvidia/nemotron-3-ultra-550b-a55b",
-    "nvidia/nemotron-4-340b-instruct",
-    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+    #"nvidia/nemotron-3-ultra-550b-a55b",
+    #"nvidia/nemotron-4-340b-instruct",
+    #"nvidia/llama-3.1-nemotron-ultra-253b-v1",
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "nvidia/nemotron-3-nano-30b-a3b",
@@ -97,7 +97,7 @@ MODEL_CONFIGS: Dict[str, ModelConfig] = {
         top_p=0.95,
     ),
 }
-_DEFAULT_CONFIG = ModelConfig(max_tokens=4096, temperature=0.2)
+_DEFAULT_CONFIG = ModelConfig(max_tokens=16384, temperature=1.0)
 
 # ─────────────────────────── 全域 OpenAI 客戶端（NVIDIA 端點） ──────
 _nvidia_client: Optional[AsyncOpenAI] = None
