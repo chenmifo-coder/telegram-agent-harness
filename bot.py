@@ -1,103 +1,146 @@
-"""
-Telegram Agent Harness — Render Free Web Service
-修正：多模型 fallback + 詳細錯誤回報
-"""
-import os, io, logging, asyncio
+import os
+import io
+import logging
+import asyncio
+from typing import Tuple, Dict, Any
+import httpx
 from telegram import Update, Document
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler,
-    ConversationHandler, filters, ContextTypes
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ConversationHandler,
+    ContextTypes,
+    filters,
 )
-import httpx
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
-# --- 新增這兩行：關閉 httpx 底層連線的 INFO 廣播 ---
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-
+# -------------------------- 配置與常數 --------------------------
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-NVIDIA_API_KEY  = os.environ["NVIDIA_API_KEY"]
-RENDER_URL      = os.environ["RENDER_URL"].rstrip("/")
-PORT            = int(os.environ.get("PORT", 10000))
+NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
+RENDER_URL = os.environ["RENDER_URL"].rstrip("/")
+PORT = int(os.environ.get("PORT", 10000))
 
-# 防呆機制：如果抓不到 Key，直接終止程式並給予明確提示
 if not NVIDIA_API_KEY:
-    raise ValueError("啟動失敗：找不到 NVIDIA_API_KEY！請檢查 Render 的 Environment 標籤頁設定。")
+    raise ValueError("Missing NVIDIA_API_KEY – check Render Environment variables.")
 
-# 按優先順序 fallback，確保至少一個可用
+# 模型 fallback 列表（依優先順序）
 NVIDIA_MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b",
     "nvidia/nemotron-4-340b-instruct",
     "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+    "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.1-nemotron-70b-instruct",
+    "nvidia/nemotron-3-nano-30b-a3b",
 ]
 
+# 對話狀態
 WAIT_FILE, WAIT_PROMPT = range(2)
 
-# 參數配置工廠 (處理特定模型的專屬參數)
-def get_model_kwargs(model_name: str) -> dict:
-    """根據模型名稱動態分配專屬參數，避免參數不相容導致報錯"""
-    if model_name == "nvidia/nemotron-3-ultra-550b-a55b":
-        # 只有 Ultra 版本需要 reasoning 參數
-        return {
-            "extra_body": {"chat_template_kwargs": {"enable_thinking": True}, "reasoning_budget": 8192},
-            "max_tokens": 16384 # Ultra 支援極大輸出
-        }
-    
-    # 其他一般 instruct 模型，帶入標準安全參數
-    return {
-        "max_tokens": 4096 # 一般模型建議設為標準安全值，避免超出上限報錯
-    }
+# 檔案大小上限（字元數），約 120k 字元對應 ~30k Tokens，安全上限
+MAX_FILE_CHARS = 120_000
+# AI 呼叫逾時（秒）
+AI_REQUEST_TIMEOUT = 300
+# 同時進行的 AI 請求數上限，防止併發過高
+MAX_CONCURRENT_AI = 2
+# 日誌格式
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-# ── NVIDIA API（自動 fallback）─────────────────────────────
-# 修改 call_nvidia 函數中的 payload 組裝邏輯
-# 將 timeout 從 120 秒延長至 300 秒 (5分鐘)
-async def call_nvidia(system_prompt: str, user_content: str) -> tuple[str, str]:
-    """回傳 (回應文字, 使用的模型名稱)，自動嘗試備用模型"""
-    last_error = None
-    async with httpx.AsyncClient(timeout=600) as client:
-        for model in NVIDIA_MODELS:
-            try:
-                # 1. 取得該模型的專屬設定
-                kwargs = get_model_kwargs(model)
-                
-                # 2. 建立基礎 Payload
-                payload = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user",   "content": user_content},
-                    ],
-                    "temperature": 0.2,
-                }
-                
-                # 3. 將專屬設定 (max_tokens, extra_body) 融入 Payload
-                payload.update(kwargs)
+# -------------------------- 模型參數映射 --------------------------
+class ModelConfig:
+    """針對特定模型的專屬參數"""
+    def __init__(self, max_tokens: int, extra_body: Dict[str, Any] | None = None):
+        self.max_tokens = max_tokens
+        self.extra_body = extra_body or {}
 
-                r = await client.post(
-                    "https://integrate.api.nvidia.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {NVIDIA_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload, # 使用動態組裝的 payload
-                )
-                if r.status_code == 200:
-                    logger.info(f"使用模型：{model}")
-                    return r.json()["choices"][0]["message"]["content"], model
-                else:
-                    logger.warning(f"模型 {model} 回傳 {r.status_code}：{r.text[:200]}")
-                    last_error = f"{r.status_code} {r.text[:200]}"
-            except Exception as e:
-                logger.warning(f"模型 {model} 發生例外：{e}")
-                last_error = str(e)
+MODEL_KWARGS: Dict[str, ModelConfig] = {
+    "nvidia/nemotron-3-ultra-550b-a55b": ModelConfig(
+        max_tokens=16384,
+        extra_body={"chat_template_kwargs": {"enable_thinking": True}, "reasoning_budget": 8192},
+    ),
+    # 其他模型使用共通設定
+    "default": ModelConfig(max_tokens=4096),
+}
+
+def get_model_kwargs(model_name: str) -> Dict[str, Any]:
+    cfg = MODEL_KWARGS.get(model_name, MODEL_KWARGS["default"])
+    payload: Dict[str, Any] = {"max_tokens": cfg.max_tokens}
+    if cfg.extra_body:
+        payload["extra_body"] = cfg.extra_body
+    return payload
+
+# -------------------------- 全域 HTTP 客戶端 --------------------------
+_http_client: httpx.AsyncClient | None = None
+_http_client_lock = asyncio.Lock()
+
+async def get_http_client() -> httpx.AsyncClient:
+    """惰性建立並回傳共用的 AsyncClient（含 timeout、連線池限制）"""
+    global _http_client
+    async with _http_client_lock:
+        if _http_client is None or _http_client.is_closed:
+            _http_client = httpx.AsyncClient(
+                timeout=AI_REQUEST_TIMEOUT,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+            )
+        return _http_client
+
+async def close_http_client():
+    global _http_client
+    if _http_client and not _http_client.is_closed:
+        await _http_client.aclose()
+        _http_client = None
+
+# -------------------------- NVIDIA API 呼叫（含 fallback） --------------------------
+async def call_nvidia(system_prompt: str, user_content: str) -> Tuple[str, str]:
+    """
+    嘗試使用 NVIDIA_MODELS 列表中的模型，回傳 (回應文字, 使用的模型名稱)。
+    所有模型失敗時拋出 RuntimeError。
+    """
+    last_error: str | None = None
+    client = await get_http_client()
+
+    for model in NVIDIA_MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_content},
+                ],
+                "temperature": 0.2,
+            }
+            payload.update(get_model_kwargs(model))
+
+            resp = await client.post(
+                "https://integrate.api.nvidia.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {NVIDIA_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+                logger.info(f"NVIDIA API 成功使用模型：{model}")
+                return content, model
+            else:
+                err_msg = f"{resp.status_code} {resp.text[:200]}"
+                logger.warning(f"模型 {model} 回傳錯誤：{err_msg}")
+                last_error = err_msg
+        except Exception as exc:  # 包含網路、逾時等
+            logger.warning(f"模型 {model} 呼叫例外：{exc}")
+            last_error = str(exc)
 
     raise RuntimeError(
-        f"所有模型均失敗。最後錯誤：{last_error}\n\n"
-        "請至 https://build.nvidia.com 確認 API Key 有效且有剩餘額度。"
+        f"所有 NVIDIA 模型均失敗。最後錯誤：{last_error}\n"
+        "請檢查 API Key 是否有效、額度是否足夠，或稍後再試。"
     )
 
+# -------------------------- 常數 Prompt --------------------------
 SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 收到 .py 程式碼與需求後，輸出以下格式，分隔符一字不差：
 
@@ -116,6 +159,10 @@ SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 (與原版比較)
 ---END_REPORT---
 """
+
+# --- 關閉 httpx 底層連線的 INFO 廣播 ---
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 async def run_agent(code: str, prompt: str) -> tuple[str, str, str]:
     """回傳 (優化程式碼, 報告, 模型名稱)"""
