@@ -2,8 +2,6 @@
 Telegram Agent Harness — Render Free Web Service
 修正：多模型 fallback + 詳細錯誤回報
 """
-import os
-from openai import OpenAI
 import os, io, logging, asyncio
 from telegram import Update, Document
 from telegram.ext import (
@@ -21,7 +19,7 @@ RENDER_URL      = os.environ["RENDER_URL"].rstrip("/")
 PORT            = int(os.environ.get("PORT", 10000))
 
 # 防呆機制：如果抓不到 Key，直接終止程式並給予明確提示
-if not api_key:
+if not NVIDIA_API_KEY:
     raise ValueError("啟動失敗：找不到 NVIDIA_API_KEY！請檢查 Render 的 Environment 標籤頁設定。")
 
 # 按優先順序 fallback，確保至少一個可用
@@ -50,27 +48,36 @@ def get_model_kwargs(model_name: str) -> dict:
     }
 
 # ── NVIDIA API（自動 fallback）─────────────────────────────
+# 修改 call_nvidia 函數中的 payload 組裝邏輯
 async def call_nvidia(system_prompt: str, user_content: str) -> tuple[str, str]:
     """回傳 (回應文字, 使用的模型名稱)，自動嘗試備用模型"""
     last_error = None
     async with httpx.AsyncClient(timeout=120) as client:
         for model in NVIDIA_MODELS:
             try:
+                # 1. 取得該模型的專屬設定
+                kwargs = get_model_kwargs(model)
+                
+                # 2. 建立基礎 Payload
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user",   "content": user_content},
+                    ],
+                    "temperature": 0.2,
+                }
+                
+                # 3. 將專屬設定 (max_tokens, extra_body) 融入 Payload
+                payload.update(kwargs)
+
                 r = await client.post(
                     "https://integrate.api.nvidia.com/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {NVIDIA_API_KEY}",
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user",   "content": user_content},
-                        ],
-                        "temperature": 0.2,
-                        "max_tokens": 4096,
-                    },
+                    json=payload, # 使用動態組裝的 payload
                 )
                 if r.status_code == 200:
                     logger.info(f"使用模型：{model}")
@@ -145,36 +152,72 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return WAIT_PROMPT
 
+# ── 1. 新增：獨立的背景處理函數 ─────────────────────────────
+async def process_ai_task(chat_id: int, message_id: int, code: str, prompt_text: str, fname: str, bot):
+    """
+    這是一個背景任務。
+    它會在不阻塞 Telegram Webhook 的情況下，默默在背景呼叫 NVIDIA API。
+    """
+    try:
+        # 呼叫 AI (這裡可能會耗時 1~2 分鐘，但沒關係，已經在背景了)
+        opt_code, report, model = await run_agent(code, prompt_text)
+
+        # 執行成功，刪除原本「分析中...」的過渡訊息
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+
+        # 準備並傳送優化後的檔案
+        import io
+        buf = io.BytesIO(opt_code.encode())
+        out_name = fname.replace(".py", "_optimized.py")
+        buf.name = out_name
+        
+        await bot.send_document(
+            chat_id=chat_id,
+            document=buf,
+            filename=out_name,
+            caption=f"✅ 完成！（模型：`{model}`）報告 👇",
+            parse_mode="Markdown"
+        )
+        
+        # 傳送報告內容 (處理超長文字分段)
+        for i in range(0, len(report), 4000):
+            await bot.send_message(chat_id=chat_id, text=report[i:i+4000], parse_mode="Markdown")
+
+    except Exception as e:
+        logger.exception("背景 run_agent 失敗")
+        # 如果發生錯誤，編輯原本的訊息來通知使用者
+        await bot.edit_message_text(f"❌ 發生錯誤，處理中斷：{e}", chat_id=chat_id, message_id=message_id)
+
+
+# ── 2. 改寫：接收需求的 Handler ─────────────────────────────
 async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     code  = ctx.user_data.get("code", "")
     fname = ctx.user_data.get("filename", "code.py")
+    prompt_text = update.message.text.strip()
+
     if not code:
         await update.message.reply_text("⚠️ 請先上傳 .py 檔案。")
         return WAIT_FILE
-    msg = await update.message.reply_text("⚙️ 分析中，約 20-40 秒…")
-    try:
-        opt_code, report, model = await run_agent(code, update.message.text.strip())
-    except Exception as e:
-        logger.exception("run_agent 失敗")
-        await msg.edit_text(f"❌ 錯誤：{e}")
-        return ConversationHandler.END
-    await msg.delete()
-    buf = io.BytesIO(opt_code.encode())
-    out_name = fname.replace(".py", "_optimized.py")
-    buf.name = out_name
-    await update.message.reply_document(
-        document=buf, filename=out_name,
-        caption=f"✅ 完成！（模型：`{model}`）報告 👇",
-        parse_mode="Markdown"
+    
+    # 步驟 A：先傳送「等待訊息」，並取得該訊息的 ID
+    msg = await update.message.reply_text("⚙️ 收到需求！已排入背景運算，這可能需要 1~2 分鐘，請耐心等候...\n(您可以繼續進行其他操作)")
+    
+    # 步驟 B：建立背景任務 (Fire and Forget 射後不理機制)
+    # 利用 asyncio.create_task 把沉重的 AI 請求丟到背景執行
+    asyncio.create_task(
+        process_ai_task(
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+            code=code,
+            prompt_text=prompt_text,
+            fname=fname,
+            bot=ctx.bot # 必須把 bot 實例傳進去，背景任務才能發送訊息
+        )
     )
-    for i in range(0, len(report), 4000):
-        await update.message.reply_text(report[i:i+4000], parse_mode="Markdown")
+    
+    # 步驟 C：立刻清理狀態並結束對話
+    # 這樣函數就會在幾毫秒內結束，Telegram 就會立刻收到 HTTP 200 OK，不再重試！
     ctx.user_data.clear()
-    return ConversationHandler.END
-
-async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    ctx.user_data.clear()
-    await update.message.reply_text("🚫 已取消。")
     return ConversationHandler.END
 
 # ── 主程式 ─────────────────────────────────────────────────
