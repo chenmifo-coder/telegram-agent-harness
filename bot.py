@@ -304,6 +304,11 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
 
 # ─────────────────────────── 主程式 ───────────────────────────
 def main() -> None:
+    # Python 3.10+ 在主執行緒不再隱式建立 event loop（3.14 已完全移除）。
+    # run_webhook 內部會呼叫 asyncio.get_event_loop()，必須事先手動建立。
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     conv = ConversationHandler(
