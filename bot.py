@@ -35,6 +35,10 @@ NVIDIA_MODELS: list[str] = [
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.1-nemotron-70b-instruct",
     "nvidia/nemotron-3-nano-30b-a3b",
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1",   # 最強，支援 thinking
+    "nvidia/llama-3.3-nemotron-super-49b-v1",    # 次強，支援 thinking
+    "meta/llama-3.3-70b-instruct",               # 穩定通用
+    "meta/llama-3.1-8b-instruct",                # 輕量備援
 ]
 
 # 對話狀態
@@ -242,7 +246,11 @@ async def call_nvidia(system_prompt: str, user_content: str) -> Tuple[str, str]:
 
 # ─────────────────────────── System Prompt ───────────────────────────
 SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
-收到 .py 程式碼與需求後，輸出以下格式，分隔符一字不差：
+
+【重要規則】
+1. 第一個字必須是 ---OPTIMIZED_CODE--- ，前面不得有任何說明、前言或空行。
+2. 嚴格按照下列格式輸出，分隔符一字不差，不得在分隔符前後加任何說明文字。
+3. 程式碼區塊內只放純 Python 原始碼，不得含 ``` fence 或任何 Markdown 標記。
 
 ---OPTIMIZED_CODE---
 (完整優化後的 Python 程式碼，純文字，不含 ``` fence)
@@ -267,24 +275,58 @@ _SEP_REPORT_END   = "---END_REPORT---"
 
 
 def _parse_agent_response(raw: str) -> Tuple[str, str]:
-    """從 AI 回應中解析出優化程式碼與報告；解析失敗則回傳原始文字。"""
-    code = report = raw
+    """
+    從 AI 回應中解析優化程式碼與報告。
+    - 解析成功：回傳 (code, report)
+    - 只找到 code 分隔符：回傳 (code, "（報告解析失敗，原始回應已略）")
+    - 找不到任何分隔符：拋出 ValueError，由呼叫方記錄 raw 並重試
+    """
+    has_code   = _SEP_CODE_START in raw and _SEP_CODE_END in raw
+    has_report = _SEP_REPORT_START in raw and _SEP_REPORT_END in raw
 
-    if _SEP_CODE_START in raw and _SEP_CODE_END in raw:
-        code = raw.split(_SEP_CODE_START, 1)[1].split(_SEP_CODE_END, 1)[0].strip()
+    if not has_code:
+        # AI 完全沒遵守格式，記錄並拋出讓 run_agent 知道
+        logger.warning(
+            "_parse_agent_response: 找不到 CODE 分隔符，raw 前 200 字：%s", raw[:200]
+        )
+        raise ValueError("AI 回應缺少 CODE 分隔符，格式不符")
 
-    if _SEP_REPORT_START in raw and _SEP_REPORT_END in raw:
+    code = raw.split(_SEP_CODE_START, 1)[1].split(_SEP_CODE_END, 1)[0].strip()
+
+    if has_report:
         report = raw.split(_SEP_REPORT_START, 1)[1].split(_SEP_REPORT_END, 1)[0].strip()
+    else:
+        logger.warning("_parse_agent_response: 找不到 REPORT 分隔符")
+        report = "（優化報告解析失敗，但程式碼已成功提取）"
 
     return code, report
 
 
 async def run_agent(code: str, prompt: str) -> Tuple[str, str, str]:
-    """回傳 (優化程式碼, 報告, 模型名稱)。"""
+    """
+    呼叫 AI 並解析回應。
+    若格式解析失敗（AI 沒有遵守分隔符規則），最多重試 2 次。
+    回傳 (優化程式碼, 報告, 模型名稱)。
+    """
     user_content = f"## 需求\n{prompt}\n\n## 原始程式碼\n```python\n{code}\n```"
-    raw, model = await call_nvidia(SYSTEM_PROMPT, user_content)
-    code_out, report_out = _parse_agent_response(raw)
-    return code_out, report_out, model
+    parse_attempts = 3
+
+    for attempt in range(1, parse_attempts + 1):
+        raw, model = await call_nvidia(SYSTEM_PROMPT, user_content)
+        try:
+            code_out, report_out = _parse_agent_response(raw)
+            return code_out, report_out, model
+        except ValueError as exc:
+            logger.warning("run_agent 格式解析失敗（第 %d/%d 次）：%s", attempt, parse_attempts, exc)
+            if attempt == parse_attempts:
+                raise RuntimeError(
+                    f"AI 連續 {parse_attempts} 次回應格式不符，無法解析優化結果。"
+                ) from exc
+            # 短暫等待後重試（避免連續打 API）
+            await asyncio.sleep(2.0)
+
+    # unreachable, but satisfies type checker
+    raise RuntimeError("run_agent: 未預期的流程結束")
 
 # ─────────────────────────── Telegram Handlers ───────────────────────────
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
