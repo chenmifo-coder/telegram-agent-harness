@@ -26,13 +26,12 @@ if not NVIDIA_API_KEY:
     raise ValueError("Missing NVIDIA_API_KEY – check Render Environment variables.")
 
 # 模型 fallback 列表（依優先順序）
+# 僅列出 NVIDIA 免費方案實際可用的模型（已驗證 2026-06）
 NVIDIA_MODELS: list[str] = [
-    "nvidia/nemotron-3-ultra-550b-a55b",
-    "nvidia/nemotron-4-340b-instruct",
-    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-    "nvidia/nemotron-3-super-120b-a12b",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
-    "nvidia/nemotron-3-nano-30b-a3b",
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1",   # 最強，支援 thinking
+    "nvidia/llama-3.3-nemotron-super-49b-v1",    # 次強，支援 thinking
+    "meta/llama-3.3-70b-instruct",               # 穩定通用
+    "meta/llama-3.1-8b-instruct",                # 輕量備援
 ]
 
 # 對話狀態
@@ -78,13 +77,13 @@ class ModelConfig:
 
 # 依 NVIDIA 官方建議設定；有 thinking 的模型使用較高 temperature
 MODEL_CONFIGS: Dict[str, ModelConfig] = {
-    "nvidia/nemotron-3-ultra-550b-a55b": ModelConfig(
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
         max_tokens=16384,
         thinking_budget=16384,
         temperature=1.0,   # 官方 thinking 模型建議值
         top_p=0.95,
     ),
-    "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
+    "nvidia/llama-3.3-nemotron-super-49b-v1": ModelConfig(
         max_tokens=16384,
         thinking_budget=8192,
         temperature=1.0,
@@ -155,7 +154,9 @@ async def _call_single_model(
         try:
             full_text_parts: list[str] = []
 
-            async with client.chat.completions.stream(
+            # 使用低階 create(stream=True)，回傳 AsyncStream[ChatCompletionChunk]
+            # 避免高階 .stream() 回傳 ChunkEvent（openai 2.x 新包裝）造成 .choices 不存在
+            stream = await client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -164,19 +165,20 @@ async def _call_single_model(
                 temperature=cfg.temperature,
                 top_p=cfg.top_p,
                 max_tokens=cfg.max_tokens,
-                extra_body=extra_body or None,
-            ) as stream:
-                async for chunk in stream:
-                    if not chunk.choices:
-                        continue
-                    delta = chunk.choices[0].delta
-                    # 收集 reasoning（思考過程，不回傳給使用者但計入 token）
-                    reasoning = getattr(delta, "reasoning_content", None)
-                    if reasoning:
-                        pass   # 如需 debug 可在此 log
-                    # 收集正式回應
-                    if delta.content:
-                        full_text_parts.append(delta.content)
+                extra_body=extra_body if extra_body else None,
+                stream=True,
+            )
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                # reasoning_content 是 NVIDIA 擴充欄位，存在 model_extra 中
+                reasoning = (delta.model_extra or {}).get("reasoning_content")
+                if reasoning:
+                    logger.debug("reasoning: %s", reasoning[:80])
+                # 收集正式回應
+                if delta.content:
+                    full_text_parts.append(delta.content)
 
             return "".join(full_text_parts)
 
