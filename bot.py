@@ -408,7 +408,7 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 # ─────────────────────────── 主程式 ───────────────────────────
-def main() -> None:
+def _build_app() -> Application:
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     conv = ConversationHandler(
@@ -424,6 +424,17 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help",  start))
     app.add_handler(conv)
+    return app
+
+
+def main() -> None:
+    # Python 3.14 完全移除了 asyncio.get_event_loop() 在主執行緒的隱式建立。
+    # python-telegram-bot 21.x 的 run_webhook() 內部仍呼叫該 API，
+    # 因此必須在呼叫前手動建立並設定 event loop。
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    app = _build_app()
 
     webhook_url = f"{RENDER_URL}/webhook/{TELEGRAM_TOKEN}"
     masked_token = (
@@ -433,14 +444,21 @@ def main() -> None:
     logger.info("啟動 webhook server，port %d", PORT)
     logger.info("Webhook URL: %s/webhook/%s", RENDER_URL, masked_token)
 
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=webhook_url,
-        url_path=f"/webhook/{TELEGRAM_TOKEN}",
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
-    )
+    try:
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=webhook_url,
+            url_path=f"/webhook/{TELEGRAM_TOKEN}",
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES,
+        )
+    finally:
+        # 確保 loop 正常關閉，釋放所有非同步資源
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            loop.close()
 
 
 if __name__ == "__main__":
