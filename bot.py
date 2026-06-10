@@ -12,6 +12,9 @@ import httpx
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+# --- 新增這兩行：關閉 httpx 底層連線的 INFO 廣播 ---
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 NVIDIA_API_KEY  = os.environ["NVIDIA_API_KEY"]
@@ -26,8 +29,8 @@ if not NVIDIA_API_KEY:
 NVIDIA_MODELS = [
     "nvidia/nemotron-3-ultra-550b-a55b",
     "nvidia/nemotron-4-340b-instruct",
-    "nvidia/nemotron-3-super-120b-a12b",
-    "nvidia/nemotron-3-nano-30b-a3b",
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
 ]
 
 WAIT_FILE, WAIT_PROMPT = range(2)
