@@ -1,5 +1,6 @@
 import os
 import io
+import html
 import logging
 import asyncio
 import time
@@ -323,8 +324,7 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
 
     ctx.user_data.update({"code": code_str, "filename": doc.file_name})
     await update.message.reply_text(
-        f"✅ 收到 `{doc.file_name}`（{len(code_str):,} 字元）\n\n請輸入優化需求：",
-        parse_mode="Markdown",
+        f"✅ 收到 {html.escape(doc.file_name)}（{len(code_str):,} 字元）\n\n請輸入優化需求：",
     )
     return WAIT_PROMPT
 
@@ -349,8 +349,7 @@ async def _process_ai_task(
             chat_id=chat_id,
             document=buf,
             filename=out_name,
-            caption=f"✅ 完成！（模型：`{model}`）報告 👇",
-            parse_mode="Markdown",
+            caption=f"✅ 完成！（模型：{html.escape(model)}）報告 👇",
         )
 
         # 安靜地刪除 status 訊息；若已消失不報錯
@@ -360,11 +359,11 @@ async def _process_ai_task(
             pass
 
         # 分段傳送報告（Telegram 單訊息上限 4096 字元）
+        # 使用純文字避免 AI 回應中的特殊字元造成 parse 失敗
         for i in range(0, len(report), TG_MSG_LIMIT):
             await bot.send_message(
                 chat_id=chat_id,
                 text=report[i : i + TG_MSG_LIMIT],
-                parse_mode="Markdown",
             )
 
     except Exception:
@@ -446,21 +445,16 @@ def main() -> None:
     logger.info("啟動 webhook server，port %d", PORT)
     logger.info("Webhook URL: %s/webhook/%s", RENDER_URL, masked_token)
 
-    try:
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            webhook_url=webhook_url,
-            url_path=f"/webhook/{TELEGRAM_TOKEN}",
-            drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES,
-        )
-    finally:
-        # 確保 loop 正常關閉，釋放所有非同步資源
-        try:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        finally:
-            loop.close()
+    # run_webhook() 本身會管理 loop 的完整生命週期並在結束時關閉它
+    # 不需要在 finally 中手動操作已關閉的 loop
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=webhook_url,
+        url_path=f"/webhook/{TELEGRAM_TOKEN}",
+        drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
 
 if __name__ == "__main__":
