@@ -2,9 +2,10 @@ import os
 import io
 import logging
 import asyncio
-from typing import Tuple, Dict, Any
+import time
+from typing import Tuple, Dict, Optional
 
-import httpx
+from openai import AsyncOpenAI, RateLimitError, AuthenticationError, APIStatusError
 from telegram import Update, Document
 from telegram.ext import (
     Application,
@@ -34,15 +35,20 @@ NVIDIA_MODELS: list[str] = [
     "nvidia/nemotron-3-nano-30b-a3b",
 ]
 
-NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-
 # 對話狀態
 WAIT_FILE, WAIT_PROMPT = range(2)
 
 # 字元上限（~120k 字元 ≈ 30k Tokens）
 MAX_FILE_CHARS = 120_000
-# AI 呼叫逾時（秒）
-AI_REQUEST_TIMEOUT = 300
+# Telegram 訊息分段上限
+TG_MSG_LIMIT = 4000
+
+# ── Rate Limit 控制 ──────────────────────────────────────────────
+# 免費方案 40 rpm = 每 1.5 秒一個請求
+RPM_LIMIT        = 40
+RPM_MIN_INTERVAL = 60.0 / RPM_LIMIT          # 1.5 秒
+RPM_MAX_BACKOFF  = 60.0                       # 單次最長等待
+RPM_MAX_RETRIES  = 3                          # 同一模型 429 重試次數
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,93 +57,178 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
 
 # ─────────────────────────── 模型參數映射 ───────────────────────────
 class ModelConfig:
     """針對特定模型的專屬參數。"""
-    __slots__ = ("max_tokens", "extra_body")
+    __slots__ = ("max_tokens", "thinking_budget", "temperature", "top_p")
 
-    def __init__(self, max_tokens: int, extra_body: Dict[str, Any] | None = None):
-        self.max_tokens = max_tokens
-        self.extra_body: Dict[str, Any] = extra_body or {}
+    def __init__(
+        self,
+        max_tokens: int,
+        thinking_budget: Optional[int] = None,
+        temperature: float = 0.2,
+        top_p: float = 0.95,
+    ):
+        self.max_tokens      = max_tokens
+        self.thinking_budget = thinking_budget
+        self.temperature     = temperature
+        self.top_p           = top_p
 
-MODEL_KWARGS: Dict[str, ModelConfig] = {
+# 依 NVIDIA 官方建議設定；有 thinking 的模型使用較高 temperature
+MODEL_CONFIGS: Dict[str, ModelConfig] = {
     "nvidia/nemotron-3-ultra-550b-a55b": ModelConfig(
         max_tokens=16384,
-        extra_body={
-            "chat_template_kwargs": {"enable_thinking": True},
-            "reasoning_budget": 8192,
-        },
+        thinking_budget=16384,
+        temperature=1.0,   # 官方 thinking 模型建議值
+        top_p=0.95,
     ),
-    "default": ModelConfig(max_tokens=4096),
+    "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
+        max_tokens=16384,
+        thinking_budget=8192,
+        temperature=1.0,
+        top_p=0.95,
+    ),
 }
+_DEFAULT_CONFIG = ModelConfig(max_tokens=4096, temperature=0.2)
 
-def get_model_payload_extras(model_name: str) -> Dict[str, Any]:
-    """回傳要合併進請求 payload 的額外欄位。"""
-    cfg = MODEL_KWARGS.get(model_name, MODEL_KWARGS["default"])
-    payload: Dict[str, Any] = {"max_tokens": cfg.max_tokens}
-    if cfg.extra_body:
-        payload["extra_body"] = cfg.extra_body
-    return payload
+# ─────────────────────────── 全域 OpenAI 客戶端（NVIDIA 端點） ──────
+_nvidia_client: Optional[AsyncOpenAI] = None
 
-# ─────────────────────────── 全域 HTTP 客戶端 ───────────────────────────
-_http_client: httpx.AsyncClient | None = None
-_http_client_lock = asyncio.Lock()
+def get_nvidia_client() -> AsyncOpenAI:
+    """惰性建立並回傳共用的 AsyncOpenAI 客戶端。"""
+    global _nvidia_client
+    if _nvidia_client is None:
+        _nvidia_client = AsyncOpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=NVIDIA_API_KEY,
+            timeout=300.0,
+            max_retries=0,   # 我們自行控制 retry 邏輯
+        )
+    return _nvidia_client
 
-async def get_http_client() -> httpx.AsyncClient:
-    """惰性建立並回傳共用的 AsyncClient（含 timeout、連線池限制）。"""
-    global _http_client
-    async with _http_client_lock:
-        if _http_client is None or _http_client.is_closed:
-            _http_client = httpx.AsyncClient(
-                timeout=AI_REQUEST_TIMEOUT,
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+# ─────────────────────────── Rate Limit Token Bucket ─────────────
+class RateLimiter:
+    """
+    簡單的 async token bucket，確保請求間隔 ≥ RPM_MIN_INTERVAL。
+    不做跨程序同步，適用單一 process 的 bot。
+    """
+    def __init__(self, min_interval: float):
+        self._min_interval = min_interval
+        self._last_call_at: float = 0.0
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now   = time.monotonic()
+            wait  = self._min_interval - (now - self._last_call_at)
+            if wait > 0:
+                logger.debug("Rate limiter: 等待 %.2f 秒", wait)
+                await asyncio.sleep(wait)
+            self._last_call_at = time.monotonic()
+
+_rate_limiter = RateLimiter(RPM_MIN_INTERVAL)
+
+# ─────────────────────────── NVIDIA API（streaming + fallback） ───
+async def _call_single_model(
+    client: AsyncOpenAI,
+    model: str,
+    system_prompt: str,
+    user_content: str,
+) -> str:
+    """
+    以 streaming 方式呼叫單一模型，回傳完整文字（reasoning + content 合併）。
+    遇到 429 時依 Retry-After header 或指數退避重試至 RPM_MAX_RETRIES 次。
+    """
+    cfg = MODEL_CONFIGS.get(model, _DEFAULT_CONFIG)
+
+    extra_body = {}
+    if cfg.thinking_budget is not None:
+        extra_body = {
+            "chat_template_kwargs": {"enable_thinking": True},
+            "reasoning_budget": cfg.thinking_budget,
+        }
+
+    for attempt in range(1, RPM_MAX_RETRIES + 2):   # +2：最後一次失敗要 raise
+        await _rate_limiter.acquire()
+        try:
+            full_text_parts: list[str] = []
+
+            async with client.chat.completions.stream(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_content},
+                ],
+                temperature=cfg.temperature,
+                top_p=cfg.top_p,
+                max_tokens=cfg.max_tokens,
+                extra_body=extra_body or None,
+            ) as stream:
+                async for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    # 收集 reasoning（思考過程，不回傳給使用者但計入 token）
+                    reasoning = getattr(delta, "reasoning_content", None)
+                    if reasoning:
+                        pass   # 如需 debug 可在此 log
+                    # 收集正式回應
+                    if delta.content:
+                        full_text_parts.append(delta.content)
+
+            return "".join(full_text_parts)
+
+        except RateLimitError as exc:
+            if attempt > RPM_MAX_RETRIES:
+                raise
+            # 嘗試從 Retry-After header 取得等待秒數
+            retry_after: float = RPM_MIN_INTERVAL * (2 ** attempt)   # 預設指數退避
+            try:
+                header_val = exc.response.headers.get("retry-after")
+                if header_val:
+                    retry_after = min(float(header_val), RPM_MAX_BACKOFF)
+            except Exception:
+                pass
+            retry_after = min(retry_after, RPM_MAX_BACKOFF)
+            logger.warning(
+                "模型 %s 觸發 429（第 %d/%d 次），等待 %.1f 秒後重試",
+                model, attempt, RPM_MAX_RETRIES, retry_after,
             )
-    return _http_client
+            await asyncio.sleep(retry_after)
 
-async def close_http_client() -> None:
-    global _http_client
-    if _http_client and not _http_client.is_closed:
-        await _http_client.aclose()
-        _http_client = None
 
-# ─────────────────────────── NVIDIA API（含 fallback） ───────────────────────────
 async def call_nvidia(system_prompt: str, user_content: str) -> Tuple[str, str]:
     """
-    依序嘗試 NVIDIA_MODELS 列表中的模型。
+    依序嘗試 NVIDIA_MODELS 列表中的模型（streaming）。
     回傳 (回應文字, 使用的模型名稱)；全部失敗則拋出 RuntimeError。
     """
-    client = await get_http_client()
-    headers = {
-        "Authorization": f"Bearer {NVIDIA_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    last_error: str = "（未發出任何請求）"
+    client    = get_nvidia_client()
+    last_error = "（未發出任何請求）"
 
     for model in NVIDIA_MODELS:
-        payload: Dict[str, Any] = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_content},
-            ],
-            "temperature": 0.2,
-            **get_model_payload_extras(model),
-        }
         try:
-            resp = await client.post(NVIDIA_API_URL, headers=headers, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                content: str = data["choices"][0]["message"]["content"]
-                logger.info("NVIDIA API 成功使用模型：%s", model)
-                return content, model
+            text = await _call_single_model(client, model, system_prompt, user_content)
+            logger.info("NVIDIA API 成功使用模型：%s", model)
+            return text, model
 
-            last_error = f"{resp.status_code} {resp.text[:200]}"
-            logger.warning("模型 %s 回傳錯誤：%s", model, last_error)
+        except AuthenticationError as exc:
+            # 認證失敗不必 fallback，直接中止
+            raise RuntimeError(f"NVIDIA API 認證失敗，請確認 API Key：{exc}") from exc
+
+        except RateLimitError as exc:
+            # 已達最大重試仍 429 → 換下一模型
+            last_error = f"429 Rate Limited: {exc}"
+            logger.warning("模型 %s 達到重試上限，嘗試下一個模型", model)
+
+        except APIStatusError as exc:
+            last_error = f"HTTP {exc.status_code}: {exc.message[:200]}"
+            logger.warning("模型 %s API 錯誤：%s", model, last_error)
 
         except Exception as exc:
-            last_error = str(exc)
-            logger.warning("模型 %s 呼叫例外：%s", model, last_error)
+            last_error = repr(exc)
+            logger.warning("模型 %s 例外：%s", model, last_error)
 
     raise RuntimeError(
         f"所有 NVIDIA 模型均失敗。最後錯誤：{last_error}\n"
@@ -164,15 +255,15 @@ SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 ---END_REPORT---
 """
 
-_SEP_CODE_START  = "---OPTIMIZED_CODE---"
-_SEP_CODE_END    = "---END_CODE---"
+_SEP_CODE_START   = "---OPTIMIZED_CODE---"
+_SEP_CODE_END     = "---END_CODE---"
 _SEP_REPORT_START = "---OPTIMIZATION_REPORT---"
-_SEP_REPORT_END  = "---END_REPORT---"
+_SEP_REPORT_END   = "---END_REPORT---"
+
 
 def _parse_agent_response(raw: str) -> Tuple[str, str]:
     """從 AI 回應中解析出優化程式碼與報告；解析失敗則回傳原始文字。"""
-    code = raw
-    report = raw
+    code = report = raw
 
     if _SEP_CODE_START in raw and _SEP_CODE_END in raw:
         code = raw.split(_SEP_CODE_START, 1)[1].split(_SEP_CODE_END, 1)[0].strip()
@@ -181,6 +272,7 @@ def _parse_agent_response(raw: str) -> Tuple[str, str]:
         report = raw.split(_SEP_REPORT_START, 1)[1].split(_SEP_REPORT_END, 1)[0].strip()
 
     return code, report
+
 
 async def run_agent(code: str, prompt: str) -> Tuple[str, str, str]:
     """回傳 (優化程式碼, 報告, 模型名稱)。"""
@@ -200,10 +292,12 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return ConversationHandler.END
 
+
 async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     ctx.user_data.clear()
     await update.message.reply_text("🚫 操作已取消。您可以隨時重新上傳檔案。")
     return ConversationHandler.END
+
 
 async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     doc: Document = update.message.document
@@ -232,9 +326,10 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return WAIT_PROMPT
 
+
 async def _process_ai_task(
     chat_id: int,
-    message_id: int,
+    status_message_id: int,
     code: str,
     prompt_text: str,
     fname: str,
@@ -244,10 +339,8 @@ async def _process_ai_task(
     try:
         opt_code, report, model = await run_agent(code, prompt_text)
 
-        await bot.delete_message(chat_id=chat_id, message_id=message_id)
-
         out_name = fname.removesuffix(".py") + "_optimized.py"
-        buf = io.BytesIO(opt_code.encode())
+        buf = io.BytesIO(opt_code.encode("utf-8"))
         buf.name = out_name
 
         await bot.send_document(
@@ -258,25 +351,38 @@ async def _process_ai_task(
             parse_mode="Markdown",
         )
 
+        # 安靜地刪除 status 訊息；若已消失不報錯
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=status_message_id)
+        except Exception:
+            pass
+
         # 分段傳送報告（Telegram 單訊息上限 4096 字元）
-        for i in range(0, len(report), 4000):
+        for i in range(0, len(report), TG_MSG_LIMIT):
             await bot.send_message(
                 chat_id=chat_id,
-                text=report[i : i + 4000],
+                text=report[i : i + TG_MSG_LIMIT],
                 parse_mode="Markdown",
             )
 
     except Exception:
         logger.exception("背景 run_agent 失敗（chat_id=%s）", chat_id)
-        await bot.edit_message_text(
-            "❌ 發生錯誤，處理中斷。請稍後再試或聯絡管理員。",
-            chat_id=chat_id,
-            message_id=message_id,
-        )
+        try:
+            await bot.edit_message_text(
+                "❌ 發生錯誤，處理中斷。請稍後再試或聯絡管理員。",
+                chat_id=chat_id,
+                message_id=status_message_id,
+            )
+        except Exception:
+            await bot.send_message(
+                chat_id=chat_id,
+                text="❌ 發生錯誤，處理中斷。請稍後再試或聯絡管理員。",
+            )
+
 
 async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    code       = ctx.user_data.get("code", "")
-    fname      = ctx.user_data.get("filename", "code.py")
+    code        = ctx.user_data.get("code", "")
+    fname       = ctx.user_data.get("filename", "code.py")
     prompt_text = update.message.text.strip()
 
     if not code:
@@ -287,28 +393,22 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         "⚙️ 收到需求！已排入背景運算，這可能需要 1~2 分鐘，請耐心等候…\n"
         "（您可以繼續進行其他操作）"
     )
+    ctx.user_data.clear()
 
-    asyncio.create_task(
+    asyncio.get_running_loop().create_task(
         _process_ai_task(
             chat_id=update.effective_chat.id,
-            message_id=msg.message_id,
+            status_message_id=msg.message_id,
             code=code,
             prompt_text=prompt_text,
             fname=fname,
             bot=ctx.bot,
         )
     )
-
-    ctx.user_data.clear()
     return ConversationHandler.END
 
 # ─────────────────────────── 主程式 ───────────────────────────
 def main() -> None:
-    # Python 3.10+ 在主執行緒不再隱式建立 event loop（3.14 已完全移除）。
-    # run_webhook 內部會呼叫 asyncio.get_event_loop()，必須事先手動建立。
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     conv = ConversationHandler(
@@ -326,8 +426,6 @@ def main() -> None:
     app.add_handler(conv)
 
     webhook_url = f"{RENDER_URL}/webhook/{TELEGRAM_TOKEN}"
-
-    # 遮蔽 Token，只記錄安全版本的 URL
     masked_token = (
         f"{TELEGRAM_TOKEN[:5]}...[隱藏]...{TELEGRAM_TOKEN[-5:]}"
         if len(TELEGRAM_TOKEN) > 10 else "***"
@@ -343,6 +441,7 @@ def main() -> None:
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
     )
+
 
 if __name__ == "__main__":
     main()
