@@ -49,10 +49,11 @@ def get_model_kwargs(model_name: str) -> dict:
 
 # ── NVIDIA API（自動 fallback）─────────────────────────────
 # 修改 call_nvidia 函數中的 payload 組裝邏輯
+# 將 timeout 從 120 秒延長至 300 秒 (5分鐘)
 async def call_nvidia(system_prompt: str, user_content: str) -> tuple[str, str]:
     """回傳 (回應文字, 使用的模型名稱)，自動嘗試備用模型"""
     last_error = None
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(timeout=600) as client:
         for model in NVIDIA_MODELS:
             try:
                 # 1. 取得該模型的專屬設定
@@ -149,9 +150,22 @@ async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not doc.file_name.endswith(".py"):
         await update.message.reply_text("⚠️ 請上傳 .py 檔案。")
         return WAIT_FILE
+        
     buf = io.BytesIO()
     await (await doc.get_file()).download_to_memory(buf)
     code_str = buf.getvalue().decode("utf-8", errors="replace")
+    
+    # --- 新增：檔案大小限制檢查 ---
+    # 設定一個合理的上限，例如 12,000 字元 (約 3000~4000 Tokens)
+    MAX_CHARS = 120000
+    if len(code_str) > MAX_CHARS:
+        await update.message.reply_text(
+            f"⚠️ 檔案太大了！(目前字元數：{len(code_str)})\n"
+            f"為了確保 AI 能夠穩定處理，請上傳小於 {MAX_CHARS} 字元的程式碼檔案。\n"
+            "您可嘗試將程式碼拆分為多個小檔案後再上傳。"
+        )
+        return WAIT_FILE # 讓使用者重新上傳
+
     ctx.user_data.update({"code": code_str, "filename": doc.file_name})
     await update.message.reply_text(
         f"✅ 收到 `{doc.file_name}`（{len(code_str)} 字元）\n\n請輸入優化需求：",
@@ -247,13 +261,17 @@ def main():
     app.add_handler(conv)
 
     webhook_url = f"{RENDER_URL}/webhook/{TELEGRAM_TOKEN}"
+# --- 新增：製作遮蔽版的 Token 以供安全 Log 顯示 ---
+    masked_token = f"{TELEGRAM_TOKEN[:5]}...[隱藏]...{TELEGRAM_TOKEN[-5:]}" if len(TELEGRAM_TOKEN) > 10 else "***"
+    masked_webhook_url = f"{RENDER_URL}/webhook/{masked_token}"
+    
     logger.info(f"啟動 webhook server，port {PORT}")
-    logger.info(f"Webhook URL: {webhook_url}")
+    logger.info(f"Webhook URL: {masked_webhook_url}") # 改為印出安全版 URL
 
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
-        webhook_url=webhook_url,
+        webhook_url=webhook_url, # 實際註冊仍使用真實 Token
         url_path=f"/webhook/{TELEGRAM_TOKEN}",
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
