@@ -115,7 +115,7 @@ def main() -> None:
     print("🤖 Python 優化專家機器人已成功啟動並開始輪詢 (Polling)...")
     
     # 開始輪詢接收訊息
-    application.run_polling(allowed_updates=Update.ALL)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
