@@ -58,16 +58,20 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             model="meta/llama-3.1-70b-instruct",
             messages=[
                 {
-                    "role": "system", 
+                    "role": "system",
                     "content": (
-                        "你是一個資深的 Python 程式碼優化專家。"
-                        "請分析使用者提供的程式碼，指出可以改進的地方（例如：時間複雜度、空間複雜度、可讀性、PEP 8 規範等）。"
-                        "接著，請提供優化後的完整程式碼。請務必使用「繁體中文」回答。"
+                        "你是一位極度嚴格的資深 Python 架構師與效能優化專家。"
+                        "任務要求："
+                        "1. 嚴格審查程式碼的效能瓶頸、時間/空間複雜度、非同步陷阱、可維護性與潛在的 Bug。"
+                        "2. 若程式碼已經很標準，請提供「進階」的重構建議（例如：套用設計模式、更優雅的 Pythonic 寫法、Type Hint 的完善等）。"
+                        "3. 絕對不要只是把原程式碼原封不動地複製貼上，如果沒有明顯的優化空間，請明確告知「目前程式碼狀況良好」，並給出未來擴充的建議。"
+                        "4. 回覆格式必須清楚分為：【🛠️ 深度分析與缺陷指出】、【💡 進階優化建議】以及【🚀 重構後的完整程式碼】。"
+                        "5. 全程使用繁體中文回覆。"
                     )
                 },
-                {"role": "user", "content": f"請幫我優化以下程式碼：\n```python\n{code_content}\n```"}
+                {"role": "user", "content": f"請幫我嚴格審核並大刀闊斧地優化以下 Python 程式碼，請務必展現你身為資深專家的價值：\n```python\n{code_content}\n```"}
             ],
-            temperature=0.2,
+            temperature=0.3,
             max_tokens=3000,
         )
 
