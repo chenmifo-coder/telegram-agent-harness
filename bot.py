@@ -127,11 +127,11 @@ async def _call_single_model(
     user_content: str,
 ) -> str:
     cfg = MODEL_CONFIGS.get(model, _DEFAULT_CONFIG)
-
+# 對於不支援 thinking 的模型，不要傳送 extra_body。但對於會強制 thinking 的模型，可以嘗試在 extra_body 中明確關閉
     extra_body = None
     if cfg.thinking_budget is not None:
         extra_body = {
-            "chat_template_kwargs": {"enable_thinking": True},
+            "chat_template_kwargs": {"enable_thinking": False},
             "reasoning_budget": cfg.thinking_budget,
         }
 
@@ -159,7 +159,17 @@ async def _call_single_model(
                 if delta.content:
                     full_text_parts.append(delta.content)
             return "".join(full_text_parts)
-
+# 修改 _call_single_model，在收集完整輸出後，記錄最後一個 chunk 的 finish_reason
+            finish_reason = None
+            async for chunk in stream:
+                if chunk.choices:
+                    finish_reason = chunk.choices[0].finish_reason
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        full_text_parts.append(delta.content)
+            if finish_reason == "length":
+                logger.warning("Response from %s was truncated due to max_tokens limit.", model)
+        
         except RateLimitError as exc:
             if attempt == RPM_MAX_RETRIES:
                 raise
