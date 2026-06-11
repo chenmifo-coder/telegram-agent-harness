@@ -1,140 +1,54 @@
 import os
-import tempfile
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from openai import AsyncOpenAI
-from dotenv import load_dotenv
+import asyncio
+import uvicorn
+from fastapi import FastAPI
+from telegram.ext import ApplicationBuilder, MessageHandler, filters
 
-# 載入環境變數 (用於本地測試，Render 部署時會讀取 Render 後台設定的變數)
-load_dotenv()
+# 匯入 CEO 員工 (總發派器)
+from ceo_agent import handle_telegram_message
 
-# 初始化 NVIDIA API (NVIDIA NIM 支援 OpenAI SDK 格式)
-nv_api_key = os.getenv("NVIDIA_API_KEY")
-client = AsyncOpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=nv_api_key
-)
+# 初始化 FastAPI 以符合 Render Web Service 需求 (提供 port 讓 cron-job ping)
+app = FastAPI()
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """處理 /start 指令"""
-    welcome_msg = (
-        "👋 你好！我是 **Python 程式碼優化專家** 🚀\n\n"
-        "請直接傳送一個 `.py` 檔案給我，我會使用 NVIDIA 的免費 AI 模型幫你分析程式碼，"
-        "並提供效能、可讀性以及 PEP 8 規範的優化建議與修改後的程式碼！"
-    )
-    await update.message.reply_text(welcome_msg, parse_mode='Markdown')
+@app.get("/")
+@app.get("/ping")
+async def ping():
+    return {"status": "AI Agent Company is running 24/7", "CEO": "Online"}
 
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """處理使用者上傳的檔案"""
-    document = update.message.document
+async def run_fastapi():
+    """在背景運行 FastAPI 伺服器"""
+    port = int(os.environ.get("PORT", 8080))
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+async def main():
+    """主程式：啟動 Telegram Bot 與 FastAPI"""
+    telegram_token = os.environ.get("TELEGRAM_TOKEN")
+    if not telegram_token:
+        print("請設定 TELEGRAM_TOKEN 環境變數")
+        return
+
+    # 初始化 Telegram Bot
+    application = ApplicationBuilder().token(telegram_token).build()
     
-    # 檢查是否為 Python 檔案
-    if not document.file_name.endswith('.py'):
-        await update.message.reply_text("⚠️ 格式錯誤：請上傳副檔名為 `.py` 的 Python 檔案喔！")
-        return
+    # 接收所有文字與檔案訊息，交給 CEO 處理
+    application.add_handler(MessageHandler(filters.TEXT | filters.Document.ALL, handle_telegram_message))
 
-    # 限制檔案大小 (例如 100KB，避免超過 Token 限制)
-    if document.file_size > 100 * 1024:
-        await update.message.reply_text("⚠️ 檔案過大：請上傳小於 100KB 的程式碼檔案。")
-        return
-
-    status_message = await update.message.reply_text("📥 正在下載您的程式碼，請稍候...")
-
-    try:
-        # 下載檔案到暫存區
-        file = await context.bot.get_file(document.file_id)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
-            await file.download_to_drive(custom_path=temp_file.name)
-            with open(temp_file.name, 'r', encoding='utf-8') as f:
-                code_content = f.read()
-        
-        # 刪除暫存檔
-        os.remove(temp_file.name)
-
-        await status_message.edit_text("🧠 正在透過 NVIDIA AI 進行深度分析與優化 (這可能需要幾十秒)...")
-
-        # 呼叫 NVIDIA API (使用 Llama-3.1-70B 模型)
-        response = await client.chat.completions.create(
-            model="meta/llama-3.1-70b-instruct",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "你是一位極度嚴格的資深 Python 架構師與效能優化專家。"
-                        "任務要求："
-                        "1. 嚴格審查程式碼的效能瓶頸、時間/空間複雜度、非同步陷阱、可維護性與潛在的 Bug。"
-                        "2. 若程式碼已經很標準，請提供「進階」的重構建議（例如：套用設計模式、更優雅的 Pythonic 寫法、Type Hint 的完善等）。"
-                        "3. 絕對不要只是把原程式碼原封不動地複製貼上，如果沒有明顯的優化空間，請明確告知「目前程式碼狀況良好」，並給出未來擴充的建議。"
-                        "4. 回覆格式必須清楚分為：【🛠️ 深度分析與缺陷指出】、【💡 進階優化建議】以及【🚀 重構後的完整程式碼】。"
-                        "5. 全程使用繁體中文回覆。"
-                    )
-                },
-                {"role": "user", "content": f"請幫我嚴格審核並大刀闊斧地優化以下 Python 程式碼，請務必展現你身為資深專家的價值：\n```python\n{code_content}\n```"}
-            ],
-            temperature=0.3,
-            max_tokens=3000,
-        )
-
-        result_text = response.choices[0].message.content
-
-        # Telegram 單則訊息有 4096 字元限制
-        # 如果結果太長，存成 Markdown 檔案回傳給使用者
-        if len(result_text) > 4000:
-            await status_message.edit_text("✅ 分析完成！因為建議內容較長，我將以檔案形式傳送給您查看。")
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".md", mode='w', encoding='utf-8') as res_file:
-                res_file.write(result_text)
-                res_file_path = res_file.name
-            
-            with open(res_file_path, 'rb') as f:
-                await update.message.reply_document(
-                    document=f, 
-                    filename=f"優化建議_{document.file_name}.md",
-                    caption="這是您的優化報告與程式碼 🚀"
-                )
-            os.remove(res_file_path)
-        else:
-            # 長度在限制內，直接發送訊息
-            await status_message.edit_text(result_text, parse_mode='Markdown')
-
-    except Exception as e:
-        await status_message.edit_text(f"❌ 發生錯誤，無法完成優化：\n`{str(e)}`", parse_mode='Markdown')
-
-def main() -> None:
-    """啟動機器人"""
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        print("❌ 錯誤: 請設定 TELEGRAM_TOKEN 環境變數")
-        return
-    if not os.getenv("NVIDIA_API_KEY"):
-        print("❌ 錯誤: 請設定 NVIDIA_API_KEY 環境變數")
-        return
-
-    # 建立應用程式
-    application = Application.builder().token(token).build()
-
-    # 註冊指令與訊息處理器
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-
-    # 判斷是否在 Render 平台上 (Render Web Service 會自動提供此環境變數)
-    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    # 啟動 Bot
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
     
-    if render_url:
-        # Webhook 模式 (Web Service)
-        port = int(os.environ.get("PORT", "10000"))
-        webhook_url = f"{render_url}/{token}"
-        print(f"🤖 偵測到 Render 網址，啟動 Webhook 模式 (Port: {port})...")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            url_path=token,
-            webhook_url=webhook_url,
-            allowed_updates=Update.ALL_TYPES
-        )
-    else:
-        # 本地開發測試時的輪詢模式
-        print("🤖 啟動輪詢 (Polling) 模式...")
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    print("CEO 已經上線，正在監聽 Telegram 訊息...")
+
+    # 同時啟動 FastAPI 確保 Render Web Service 正常監聽 Port
+    asyncio.create_task(run_fastapi())
+
+    # 保持主程式運行
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == '__main__':
-    main()
+    # 啟動事件迴圈
+    asyncio.run(main())
