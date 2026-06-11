@@ -26,9 +26,10 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
         if file_name.endswith('.py'):
             file_size_kb = doc.file_size / 1024
             
-            # 確保這裡的 CEO 發言完整存在
-            await status_msg.edit_text(
-                f"🧠 [CEO]: 收到名為 `{file_name}` 的 Python 檔案 (大小: {file_size_kb:.2f} KB)。\n"
+            # 確保這裡的 CEO 發言完整存在，改為傳送新訊息接續顯示
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🧠 [CEO]: 收到名為 `{file_name}` 的 Python 檔案 (大小: {file_size_kb:.2f} KB)。\n"
                 f"這是一項技術任務，身為 CEO 我只做最高效的決策。我現在將此專案指派給我們的「資深 Python 架構師」進行效能極致優化！🚀"
             )
             
@@ -41,8 +42,8 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
             await optimize_python_code(chat_id, user_text, code_content, file_name, context, status_msg)
             return
         else:
-            await status_msg.edit_text("🧠 [CEO]: 兄弟，這不是 Python 檔案。我們公司目前專注於顛覆性的 Python 架構優化。請傳送 .py 檔案給我。")
+            await context.bot.send_message(chat_id=chat_id, text="🧠 [CEO]: 兄弟，這不是 Python 檔案。我們公司目前專注於顛覆性的 Python 架構優化。請傳送 .py 檔案給我。")
             return
 
     # 若只有純文字，CEO 親自回應
-    await status_msg.edit_text("🧠 [CEO]: 收到文字訊息。請傳送您需要優化的 `.py` 程式碼檔案，我會指派架構師為您重構到極致！")
+    await context.bot.send_message(chat_id=chat_id, text="🧠 [CEO]: 收到文字訊息。請傳送您需要優化的 `.py` 程式碼檔案，我會指派架構師為您重構到極致！")
