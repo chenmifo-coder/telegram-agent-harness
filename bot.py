@@ -4,7 +4,8 @@ import html
 import logging
 import asyncio
 import time
-from typing import Tuple, Dict, Optional, List, Final
+import re
+from typing import Tuple, Dict, Optional, Set
 
 from openai import AsyncOpenAI, RateLimitError, AuthenticationError, APIStatusError
 from telegram import Update, Document
@@ -18,22 +19,20 @@ from telegram.ext import (
 )
 
 # ─────────────────────────── 配置與常數 ───────────────────────────
-TELEGRAM_TOKEN: Final[str] = os.environ["TELEGRAM_TOKEN"]
-NVIDIA_API_KEY: Final[str] = os.environ["NVIDIA_API_KEY"]
-RENDER_URL: Final[str] = os.environ["RENDER_URL"].rstrip("/")
-PORT: Final[int] = int(os.environ.get("PORT", 10000))
+TELEGRAM_TOKEN: str = os.environ["TELEGRAM_TOKEN"]
+NVIDIA_API_KEY: str = os.environ["NVIDIA_API_KEY"]
+RENDER_URL: str     = os.environ["RENDER_URL"].rstrip("/")
+PORT: int           = int(os.environ.get("PORT", 10000))
 
 if not NVIDIA_API_KEY:
     raise ValueError("Missing NVIDIA_API_KEY – check Render Environment variables.")
 
 # 模型 fallback 列表（依優先順序）
-NVIDIA_MODELS: Final[List[str]] = [
-    "nvidia/nemotron-3-ultra-550b-a55b",
+NVIDIA_MODELS: list[str] = [
     "nvidia/nemotron-4-340b-instruct",
     "nvidia/llama-3.1-nemotron-ultra-253b-v1",
     "nvidia/nemotron-3-super-120b-a12b",
     "nvidia/llama-3.1-nemotron-70b-instruct",
-    "nvidia/nemotron-3-nano-30b-a3b",
     "nvidia/llama-3.3-nemotron-super-49b-v1",
     "meta/llama-3.3-70b-instruct",
     "meta/llama-3.1-8b-instruct",
@@ -42,16 +41,18 @@ NVIDIA_MODELS: Final[List[str]] = [
 # 對話狀態
 WAIT_FILE, WAIT_PROMPT = range(2)
 
-# 字元上限（~120k 字元 ≈ 30k Tokens）
-MAX_FILE_CHARS: Final[int] = 120_000
-# Telegram 訊息分段上限
-TG_MSG_LIMIT: Final[int] = 4000
+# 字元上限
+MAX_FILE_CHARS = 120_000
+TG_MSG_LIMIT = 4000
 
-# ── Rate Limit 控制 ──────────────────────────────────────────────
-RPM_LIMIT: Final[int] = 40
-RPM_MIN_INTERVAL: Final[float] = 60.0 / RPM_LIMIT          # 1.5 秒
-RPM_MAX_BACKOFF: Final[float] = 60.0
-RPM_MAX_RETRIES: Final[int] = 3
+# Rate Limit 控制
+RPM_LIMIT        = 40
+RPM_MIN_INTERVAL = 60.0 / RPM_LIMIT
+RPM_MAX_BACKOFF  = 60.0
+RPM_MAX_RETRIES  = 3
+
+# 用於儲存背景任務，防止被 Garbage Collector 意外回收
+_background_tasks: Set[asyncio.Task] = set()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,29 +73,12 @@ class ModelConfig:
         temperature: float = 0.2,
         top_p: float = 0.95,
     ):
-        self.max_tokens = max_tokens
+        self.max_tokens      = max_tokens
         self.thinking_budget = thinking_budget
-        self.temperature = temperature
-        self.top_p = top_p
+        self.temperature     = temperature
+        self.top_p           = top_p
 
-    @property
-    def extra_body(self) -> Optional[Dict]:
-        """根據 thinking_budget 產生 extra_body，若無則回傳 None（讓 API 使用預設行為）。"""
-        if self.thinking_budget is not None:
-            # 注意：當我們明確設定 thinking_budget 時，通常希望啟用 thinking，
-            # 但若希望強制關閉 thinking，可以將 enable_thinking 設為 False，
-            # 並省略 reasoning_budget 或設為 0。此處保留彈性：若 budget > 0 則開啟 thinking。
-            if self.thinking_budget > 0:
-                return {
-                    "chat_template_kwargs": {"enable_thinking": True},
-                    "reasoning_budget": self.thinking_budget,
-                }
-            else:
-                # budget 為 0 或負數時，關閉 thinking
-                return {"chat_template_kwargs": {"enable_thinking": False}}
-        return None  # 不傳 extra_body，讓模型使用預設行為
-
-MODEL_CONFIGS: Final[Dict[str, ModelConfig]] = {
+MODEL_CONFIGS: Dict[str, ModelConfig] = {
     "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
         max_tokens=16384, thinking_budget=16384, temperature=1.0, top_p=0.95,
     ),
@@ -102,7 +86,7 @@ MODEL_CONFIGS: Final[Dict[str, ModelConfig]] = {
         max_tokens=16384, thinking_budget=8192, temperature=1.0, top_p=0.95,
     ),
 }
-_DEFAULT_CONFIG: Final[ModelConfig] = ModelConfig(max_tokens=16384, temperature=0.2)
+_DEFAULT_CONFIG = ModelConfig(max_tokens=16384, temperature=0.2)
 
 # ─────────────────────────── 全域 OpenAI 客戶端 ──────────────────────
 _nvidia_client: Optional[AsyncOpenAI] = None
@@ -111,7 +95,7 @@ def get_nvidia_client() -> AsyncOpenAI:
     global _nvidia_client
     if _nvidia_client is None:
         _nvidia_client = AsyncOpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
+            base_url="[https://integrate.api.nvidia.com/v1](https://integrate.api.nvidia.com/v1)",
             api_key=NVIDIA_API_KEY,
             timeout=300.0,
             max_retries=0,
@@ -120,7 +104,6 @@ def get_nvidia_client() -> AsyncOpenAI:
 
 # ─────────────────────────── Rate Limiter ─────────────────────────
 class RateLimiter:
-    __slots__ = ("_min_interval", "_last_call_at", "_lock")
     def __init__(self, min_interval: float):
         self._min_interval = min_interval
         self._last_call_at: float = 0.0
@@ -131,13 +114,12 @@ class RateLimiter:
             now = time.monotonic()
             wait = self._min_interval - (now - self._last_call_at)
             if wait > 0:
-                logger.debug("Rate limiter: wait %.2f sec", wait)
                 await asyncio.sleep(wait)
             self._last_call_at = time.monotonic()
 
 _rate_limiter = RateLimiter(RPM_MIN_INTERVAL)
 
-# ─────────────────────────── NVIDIA API（streaming + fallback） ───
+# ─────────────────────────── NVIDIA API ───────────────────────────
 async def _call_single_model(
     client: AsyncOpenAI,
     model: str,
@@ -145,14 +127,19 @@ async def _call_single_model(
     user_content: str,
 ) -> str:
     cfg = MODEL_CONFIGS.get(model, _DEFAULT_CONFIG)
-    extra_body = cfg.extra_body
+    extra_body = None
+    if cfg.thinking_budget is not None:
+        extra_body = {
+            "chat_template_kwargs": {"enable_thinking": False},
+            "reasoning_budget": cfg.thinking_budget,
+        }
 
-    # 重試邏輯：共嘗試 (RPM_MAX_RETRIES + 1) 次
     for attempt in range(RPM_MAX_RETRIES + 1):
         await _rate_limiter.acquire()
         try:
-            full_text_parts: List[str] = []
+            full_text_parts: list[str] = []
             finish_reason = None
+            
             stream = await client.chat.completions.create(
                 model=model,
                 messages=[
@@ -165,23 +152,25 @@ async def _call_single_model(
                 extra_body=extra_body,
                 stream=True,
             )
+            
+            # 【修正】合併在同一個迴圈中處理 content 與 finish_reason
             async for chunk in stream:
                 if not chunk.choices:
                     continue
-                finish_reason = chunk.choices[0].finish_reason
-                delta = chunk.choices[0].delta
+                choice = chunk.choices[0]
+                
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
+                    
+                delta = choice.delta
                 if delta.content:
                     full_text_parts.append(delta.content)
-
-            full_text = "".join(full_text_parts)
+            
             if finish_reason == "length":
-                logger.warning(
-                    "Response from %s was truncated due to max_tokens limit (max_tokens=%d). "
-                    "Consider increasing the limit or using a model with larger output capacity.",
-                    model, cfg.max_tokens
-                )
-            return full_text
-
+                logger.warning("Response from %s was truncated due to max_tokens limit.", model)
+                
+            return "".join(full_text_parts)
+        
         except RateLimitError as exc:
             if attempt == RPM_MAX_RETRIES:
                 raise
@@ -229,9 +218,8 @@ async def call_nvidia(system_prompt: str, user_content: str) -> Tuple[str, str]:
 SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 
 【重要規則】
-1. 第一個字必須是 ---OPTIMIZED_CODE--- ，前面不得有任何說明、前言或空行。
-2. 嚴格按照下列格式輸出，分隔符一字不差，不得在分隔符前後加任何說明文字。
-3. 程式碼區塊內只放純 Python 原始碼，不得含 ``` fence 或任何 Markdown 標記。
+1. 嚴格按照下列格式輸出，分隔符一字不差。
+2. 程式碼區塊內只放純 Python 原始碼，不得含 ``` fence 或任何 Markdown 標記。
 
 ---OPTIMIZED_CODE---
 (完整優化後的 Python 程式碼，純文字，不含 ``` fence)
@@ -249,26 +237,30 @@ SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
 ---END_REPORT---
 """
 
-_SEP_CODE_START   = "---OPTIMIZED_CODE---"
-_SEP_CODE_END     = "---END_CODE---"
-_SEP_REPORT_START = "---OPTIMIZATION_REPORT---"
-_SEP_REPORT_END   = "---END_REPORT---"
-
 def _parse_agent_response(raw: str) -> Tuple[str, str]:
-    has_code   = _SEP_CODE_START in raw and _SEP_CODE_END in raw
-    has_report = _SEP_REPORT_START in raw and _SEP_REPORT_END in raw
+    """【修正】使用正則表達式，增加對 LLM 幻覺輸出的容錯能力"""
+    # 擷取 CODE 區段 (使用 re.DOTALL 讓 . 可以匹配換行符)
+    code_match = re.search(r"---OPTIMIZED_CODE---\s*(.*?)\s*---END_CODE---", raw, re.DOTALL)
+    report_match = re.search(r"---OPTIMIZATION_REPORT---\s*(.*?)\s*---END_REPORT---", raw, re.DOTALL)
 
-    if not has_code:
-        logger.warning("Missing CODE delimiters, raw[:200]=%s", raw[:200])
+    if not code_match:
+        logger.warning("Missing CODE delimiters. Raw response snippet: %s", raw[:200])
         raise ValueError("AI response missing CODE delimiters")
 
-    code = raw.split(_SEP_CODE_START, 1)[1].split(_SEP_CODE_END, 1)[0].strip()
-    if has_report:
-        report = raw.split(_SEP_REPORT_START, 1)[1].split(_SEP_REPORT_END, 1)[0].strip()
+    code = code_match.group(1).strip()
+    
+    # 防呆：如果 LLM 不聽話，還是在裡面加了 ```python 標籤，我們把它清掉
+    code = re.sub(r"^```python\n?", "", code, flags=re.IGNORECASE)
+    code = re.sub(r"^```\n?", "", code)
+    code = re.sub(r"\n?```$", "", code)
+
+    if report_match:
+        report = report_match.group(1).strip()
     else:
         logger.warning("Missing REPORT delimiters")
         report = "（優化報告解析失敗，但程式碼已成功提取）"
-    return code, report
+        
+    return code.strip(), report
 
 async def run_agent(code: str, prompt: str) -> Tuple[str, str, str]:
     user_content = f"## 需求\n{prompt}\n\n## 原始程式碼\n```python\n{code}\n```"
@@ -282,10 +274,8 @@ async def run_agent(code: str, prompt: str) -> Tuple[str, str, str]:
         except ValueError as exc:
             logger.warning("Parse failed (attempt %d/%d): %s", attempt, parse_attempts, exc)
             if attempt == parse_attempts:
-                raise RuntimeError(
-                    f"AI failed to follow format after {parse_attempts} attempts."
-                ) from exc
-            await asyncio.sleep(2.0)  # 避免快速重試
+                raise RuntimeError(f"AI failed to follow format after {parse_attempts} attempts.") from exc
+            await asyncio.sleep(2.0)
 
     raise RuntimeError("run_agent: unreachable")
 
@@ -362,11 +352,11 @@ async def _process_ai_task(
                 chat_id=chat_id,
                 text=report[i:i + TG_MSG_LIMIT],
             )
-    except Exception:
+    except Exception as e:
         logger.exception("Background agent failed (chat_id=%s)", chat_id)
         try:
             await bot.edit_message_text(
-                "❌ 發生錯誤，處理中斷。請稍後再試或聯絡管理員。",
+                f"❌ 發生錯誤，處理中斷。\n錯誤資訊: {str(e)[:200]}",
                 chat_id=chat_id,
                 message_id=status_message_id,
             )
@@ -391,7 +381,8 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
     )
     ctx.user_data.clear()
 
-    asyncio.create_task(
+    # 【修正】保留 Task 的參照，避免被垃圾回收中斷
+    task = asyncio.create_task(
         _process_ai_task(
             chat_id=update.effective_chat.id,
             status_message_id=msg.message_id,
@@ -401,6 +392,9 @@ async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
             bot=ctx.bot,
         )
     )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
     return ConversationHandler.END
 
 # ─────────────────────────── 主程式 ───────────────────────────
@@ -423,24 +417,25 @@ def _build_app() -> Application:
     return app
 
 def main() -> None:
-    # 為相容 python-telegram-bot 21.x 手動建立 event loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     app = _build_app()
-    webhook_url = f"{RENDER_URL}/webhook/{TELEGRAM_TOKEN}"
+    webhook_path = f"/webhook/{TELEGRAM_TOKEN}"
+    webhook_url = f"{RENDER_URL}{webhook_path}"
+    
     masked_token = (
         f"{TELEGRAM_TOKEN[:5]}...[隱藏]...{TELEGRAM_TOKEN[-5:]}"
         if len(TELEGRAM_TOKEN) > 10 else "***"
     )
     logger.info("Starting webhook on port %d", PORT)
-    logger.info("Webhook URL: %s/webhook/%s", RENDER_URL, masked_token)
+    logger.info("Webhook URL: %s", webhook_url.replace(TELEGRAM_TOKEN, masked_token))
 
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,
         webhook_url=webhook_url,
-        url_path=f"/webhook/{TELEGRAM_TOKEN}",
+        url_path=webhook_path,  # 【修正】確保 url_path 與 webhook_url 路徑一致
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES,
     )
