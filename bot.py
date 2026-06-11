@@ -85,7 +85,7 @@ MODEL_CONFIGS: Dict[str, ModelConfig] = {
         max_tokens=16384, thinking_budget=8192, temperature=1.0, top_p=0.95,
     ),
 }
-_DEFAULT_CONFIG = ModelConfig(max_tokens=4096, temperature=0.2)  # 降低預設 token 避免超時
+_DEFAULT_CONFIG = ModelConfig(max_tokens=16384, temperature=0.2)  # 降低預設 token 避免超時
 
 # ─────────────────────────── 全域 OpenAI 客戶端 ──────────────────────
 _nvidia_client: Optional[AsyncOpenAI] = None
