@@ -1,6 +1,7 @@
 import os
 import re
 import tempfile
+import asyncio
 from telegram.ext import ContextTypes
 from openai import AsyncOpenAI
 
@@ -14,20 +15,21 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
         await context.bot.send_message(chat_id=chat_id, text="⚠️ 系統錯誤：缺少 NVIDIA_API_KEY")
         return
 
-    # 建立 NVIDIA OpenAI Client
+    # 建立 NVIDIA OpenAI Client (加入超時設定與重試機制防護)
     client = AsyncOpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
-        api_key=nvidia_api_key
+        api_key=nvidia_api_key,
+        timeout=600.0, # 設定最大等待時間為 600 秒 (10 分鐘)，超時將主動報錯
+        max_retries=1  # 失敗時最多重試 1 次
     )
 
-    # 這裡加上 reply_to_message_id，確保不覆寫 CEO 訊息，並呈現「員工回覆老闆」的群組協作感
     await context.bot.send_message(
-        chat_id=chat_id,
+        chat_id=chat_id, 
         reply_to_message_id=status_msg.message_id,
         text="🛠️ [架構師]: 收到任務。我正在審視這份程式碼的 Big-O 複雜度與記憶體管理。由於檔案可能高達 100KB，這將會進行深度的 GPU/CPU 效能榨取分析，請稍候幾分鐘..."
     )
 
-    # 系統提示詞設定 (要求絕對不截斷，並增加深度優化指標)
+    # 系統提示詞設定 (要求絕對不截斷)
     system_prompt = """
     你是一位世界頂級的資深 Python 架構師與效能優化專家。
     你的任務是深度重構與優化用戶提供的 Python 程式碼。你不僅僅是修改排版，你必須找出效能瓶頸並徹底重寫不良架構。
@@ -48,18 +50,21 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
     user_prompt = f"用戶額外指示: {user_instruction}\n\n需要優化的完整程式碼如下：\n```python\n{code_content}\n```"
 
     try:
-        # 使用 llama-3.1-70b-instruct，支援高達 128K Token 上下文，非常適合處理 100KB 大檔案
+        print(f"🚀 [系統日誌] 準備發送 {original_filename} 至 NVIDIA API...")
+        
+        # 使用 llama-3.1-70b-instruct
         response = await client.chat.completions.create(
             #model="meta/llama-3.1-70b-instruct",
-            model="nvidia/nemotron-3-ultra-550b-a55b",
+            model="nvidia/nemotron-3-super-120b-a12b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.2,
-            max_tokens=8000 # 盡可能設定最大輸出，確保程式碼不被截斷
+            max_tokens=16384 # 盡可能設定最大輸出，確保程式碼不被截斷
         )
         
+        print(f"✅ [系統日誌] NVIDIA API 成功回傳 {original_filename} 的結果！正在處理字串...")
         reply_content = response.choices[0].message.content
 
         # 解析 LLM 回應，分離「說明」與「程式碼」
@@ -72,7 +77,6 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
             # 將說明文字中的程式碼區塊移除，只留下純文字說明
             explanation = reply_content[:code_match.start()].strip() + "\n\n" + reply_content[code_match.end():].strip()
         else:
-            # 如果沒有找到 python 區塊，可能模型直接輸出了程式碼
             if "def " in reply_content or "import " in reply_content:
                 optimized_code = reply_content
                 explanation = "⚠️ 架構師直接返回了程式碼，未提供額外格式化說明。"
@@ -80,11 +84,13 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
                 await context.bot.send_message(chat_id=chat_id, text="⚠️ 架構師優化失敗，未能正確生成程式碼區塊。")
                 return
 
+        print("📝 [系統日誌] 準備寫入暫存檔...")
         # 寫入暫存檔案以供 Telegram 回傳
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as temp_file:
             temp_file.write(optimized_code)
             temp_file_path = temp_file.name
 
+        print("📤 [系統日誌] 正在傳送說明與檔案至 Telegram...")
         # 發送優化說明 (文字過長時截斷發送，Telegram 限制 4096 字元)
         safe_explanation = explanation[:4000] + ("..." if len(explanation) > 4000 else "")
         await context.bot.send_message(chat_id=chat_id, text=f"🛠️ [架構師報告]:\n{safe_explanation}")
@@ -101,6 +107,9 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
             
         # 清理暫存檔
         os.remove(temp_file_path)
+        print(f"🎉 [系統日誌] {original_filename} 任務完成！")
 
     except Exception as e:
-        await context.bot.send_message(chat_id=chat_id, text=f"❌ 處理過程中發生錯誤: {str(e)}")
+        error_msg = str(e)
+        print(f"❌ [系統日誌] 發生錯誤: {error_msg}")
+        await context.bot.send_message(chat_id=chat_id, text=f"❌ 架構師處理過程中發生嚴重錯誤或超時:\n`{error_msg}`")
