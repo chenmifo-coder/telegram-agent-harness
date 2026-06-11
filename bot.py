@@ -4,7 +4,7 @@ import html
 import logging
 import asyncio
 import time
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, List, Final
 
 from openai import AsyncOpenAI, RateLimitError, AuthenticationError, APIStatusError
 from telegram import Update, Document
@@ -18,16 +18,16 @@ from telegram.ext import (
 )
 
 # ─────────────────────────── 配置與常數 ───────────────────────────
-TELEGRAM_TOKEN: str = os.environ["TELEGRAM_TOKEN"]
-NVIDIA_API_KEY: str = os.environ["NVIDIA_API_KEY"]
-RENDER_URL: str     = os.environ["RENDER_URL"].rstrip("/")
-PORT: int           = int(os.environ.get("PORT", 10000))
+TELEGRAM_TOKEN: Final[str] = os.environ["TELEGRAM_TOKEN"]
+NVIDIA_API_KEY: Final[str] = os.environ["NVIDIA_API_KEY"]
+RENDER_URL: Final[str] = os.environ["RENDER_URL"].rstrip("/")
+PORT: Final[int] = int(os.environ.get("PORT", 10000))
 
 if not NVIDIA_API_KEY:
     raise ValueError("Missing NVIDIA_API_KEY – check Render Environment variables.")
 
-# 模型 fallback 列表（依優先順序）- 移除重複項目
-NVIDIA_MODELS: list[str] = [
+# 模型 fallback 列表（依優先順序）
+NVIDIA_MODELS: Final[List[str]] = [
     "nvidia/nemotron-3-ultra-550b-a55b",
     "nvidia/nemotron-4-340b-instruct",
     "nvidia/llama-3.1-nemotron-ultra-253b-v1",
@@ -43,15 +43,15 @@ NVIDIA_MODELS: list[str] = [
 WAIT_FILE, WAIT_PROMPT = range(2)
 
 # 字元上限（~120k 字元 ≈ 30k Tokens）
-MAX_FILE_CHARS = 120_000
+MAX_FILE_CHARS: Final[int] = 120_000
 # Telegram 訊息分段上限
-TG_MSG_LIMIT = 4000
+TG_MSG_LIMIT: Final[int] = 4000
 
 # ── Rate Limit 控制 ──────────────────────────────────────────────
-RPM_LIMIT        = 40
-RPM_MIN_INTERVAL = 60.0 / RPM_LIMIT          # 1.5 秒
-RPM_MAX_BACKOFF  = 60.0
-RPM_MAX_RETRIES  = 3                          # 單一模型最多重試次數
+RPM_LIMIT: Final[int] = 40
+RPM_MIN_INTERVAL: Final[float] = 60.0 / RPM_LIMIT          # 1.5 秒
+RPM_MAX_BACKOFF: Final[float] = 60.0
+RPM_MAX_RETRIES: Final[int] = 3
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,12 +72,29 @@ class ModelConfig:
         temperature: float = 0.2,
         top_p: float = 0.95,
     ):
-        self.max_tokens      = max_tokens
+        self.max_tokens = max_tokens
         self.thinking_budget = thinking_budget
-        self.temperature     = temperature
-        self.top_p           = top_p
+        self.temperature = temperature
+        self.top_p = top_p
 
-MODEL_CONFIGS: Dict[str, ModelConfig] = {
+    @property
+    def extra_body(self) -> Optional[Dict]:
+        """根據 thinking_budget 產生 extra_body，若無則回傳 None（讓 API 使用預設行為）。"""
+        if self.thinking_budget is not None:
+            # 注意：當我們明確設定 thinking_budget 時，通常希望啟用 thinking，
+            # 但若希望強制關閉 thinking，可以將 enable_thinking 設為 False，
+            # 並省略 reasoning_budget 或設為 0。此處保留彈性：若 budget > 0 則開啟 thinking。
+            if self.thinking_budget > 0:
+                return {
+                    "chat_template_kwargs": {"enable_thinking": True},
+                    "reasoning_budget": self.thinking_budget,
+                }
+            else:
+                # budget 為 0 或負數時，關閉 thinking
+                return {"chat_template_kwargs": {"enable_thinking": False}}
+        return None  # 不傳 extra_body，讓模型使用預設行為
+
+MODEL_CONFIGS: Final[Dict[str, ModelConfig]] = {
     "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
         max_tokens=16384, thinking_budget=16384, temperature=1.0, top_p=0.95,
     ),
@@ -85,7 +102,7 @@ MODEL_CONFIGS: Dict[str, ModelConfig] = {
         max_tokens=16384, thinking_budget=8192, temperature=1.0, top_p=0.95,
     ),
 }
-_DEFAULT_CONFIG = ModelConfig(max_tokens=16384, temperature=0.2)  # 降低預設 token 避免超時
+_DEFAULT_CONFIG: Final[ModelConfig] = ModelConfig(max_tokens=16384, temperature=0.2)
 
 # ─────────────────────────── 全域 OpenAI 客戶端 ──────────────────────
 _nvidia_client: Optional[AsyncOpenAI] = None
@@ -103,6 +120,7 @@ def get_nvidia_client() -> AsyncOpenAI:
 
 # ─────────────────────────── Rate Limiter ─────────────────────────
 class RateLimiter:
+    __slots__ = ("_min_interval", "_last_call_at", "_lock")
     def __init__(self, min_interval: float):
         self._min_interval = min_interval
         self._last_call_at: float = 0.0
@@ -127,19 +145,14 @@ async def _call_single_model(
     user_content: str,
 ) -> str:
     cfg = MODEL_CONFIGS.get(model, _DEFAULT_CONFIG)
-# 對於不支援 thinking 的模型，不要傳送 extra_body。但對於會強制 thinking 的模型，可以嘗試在 extra_body 中明確關閉
-    extra_body = None
-    if cfg.thinking_budget is not None:
-        extra_body = {
-            "chat_template_kwargs": {"enable_thinking": False},
-            "reasoning_budget": cfg.thinking_budget,
-        }
+    extra_body = cfg.extra_body
 
     # 重試邏輯：共嘗試 (RPM_MAX_RETRIES + 1) 次
     for attempt in range(RPM_MAX_RETRIES + 1):
         await _rate_limiter.acquire()
         try:
-            full_text_parts: list[str] = []
+            full_text_parts: List[str] = []
+            finish_reason = None
             stream = await client.chat.completions.create(
                 model=model,
                 messages=[
@@ -155,21 +168,20 @@ async def _call_single_model(
             async for chunk in stream:
                 if not chunk.choices:
                     continue
+                finish_reason = chunk.choices[0].finish_reason
                 delta = chunk.choices[0].delta
                 if delta.content:
                     full_text_parts.append(delta.content)
-            return "".join(full_text_parts)
-# 修改 _call_single_model，在收集完整輸出後，記錄最後一個 chunk 的 finish_reason
-            finish_reason = None
-            async for chunk in stream:
-                if chunk.choices:
-                    finish_reason = chunk.choices[0].finish_reason
-                    delta = chunk.choices[0].delta
-                    if delta.content:
-                        full_text_parts.append(delta.content)
+
+            full_text = "".join(full_text_parts)
             if finish_reason == "length":
-                logger.warning("Response from %s was truncated due to max_tokens limit.", model)
-        
+                logger.warning(
+                    "Response from %s was truncated due to max_tokens limit (max_tokens=%d). "
+                    "Consider increasing the limit or using a model with larger output capacity.",
+                    model, cfg.max_tokens
+                )
+            return full_text
+
         except RateLimitError as exc:
             if attempt == RPM_MAX_RETRIES:
                 raise
