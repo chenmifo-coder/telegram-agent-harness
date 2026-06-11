@@ -20,8 +20,10 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
         api_key=nvidia_api_key
     )
 
+    # 這裡加上 reply_to_message_id，確保不覆寫 CEO 訊息，並呈現「員工回覆老闆」的群組協作感
     await context.bot.send_message(
-        chat_id=chat_id, 
+        chat_id=chat_id,
+        reply_to_message_id=status_msg.message_id,
         text="🛠️ [架構師]: 收到任務。我正在審視這份程式碼的 Big-O 複雜度與記憶體管理。由於檔案可能高達 100KB，這將會進行深度的 GPU/CPU 效能榨取分析，請稍候幾分鐘..."
     )
 
