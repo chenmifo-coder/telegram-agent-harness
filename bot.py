@@ -1,444 +1,121 @@
 import os
-import io
-import html
-import logging
-import asyncio
-import time
-import re
-from typing import Tuple, Dict, Optional, Set
+import tempfile
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from openai import AsyncOpenAI
+from dotenv import load_dotenv
 
-from openai import AsyncOpenAI, RateLimitError, AuthenticationError, APIStatusError
-from telegram import Update, Document
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ConversationHandler,
-    ContextTypes,
-    filters,
+# 載入環境變數 (用於本地測試，Render 部署時會讀取 Render 後台設定的變數)
+load_dotenv()
+
+# 初始化 NVIDIA API (NVIDIA NIM 支援 OpenAI SDK 格式)
+nv_api_key = os.getenv("NVIDIA_API_KEY")
+client = AsyncOpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=nv_api_key
 )
 
-# ─────────────────────────── 配置與常數 ───────────────────────────
-TELEGRAM_TOKEN: str = os.environ["TELEGRAM_TOKEN"]
-NVIDIA_API_KEY: str = os.environ["NVIDIA_API_KEY"]
-RENDER_URL: str     = os.environ["RENDER_URL"].rstrip("/")
-PORT: int           = int(os.environ.get("PORT", 10000))
-
-if not NVIDIA_API_KEY:
-    raise ValueError("Missing NVIDIA_API_KEY – check Render Environment variables.")
-
-# 模型 fallback 列表（依優先順序）
-NVIDIA_MODELS: list[str] = [
-    "nvidia/nemotron-4-340b-instruct",
-    "nvidia/llama-3.1-nemotron-ultra-253b-v1",
-    "nvidia/nemotron-3-super-120b-a12b",
-    "nvidia/llama-3.1-nemotron-70b-instruct",
-    "nvidia/llama-3.3-nemotron-super-49b-v1",
-    "meta/llama-3.3-70b-instruct",
-    "meta/llama-3.1-8b-instruct",
-]
-
-# 對話狀態
-WAIT_FILE, WAIT_PROMPT = range(2)
-
-# 字元上限
-MAX_FILE_CHARS = 120_000
-TG_MSG_LIMIT = 4000
-
-# Rate Limit 控制
-RPM_LIMIT        = 40
-RPM_MIN_INTERVAL = 60.0 / RPM_LIMIT
-RPM_MAX_BACKOFF  = 60.0
-RPM_MAX_RETRIES  = 3
-
-# 用於儲存背景任務，防止被 Garbage Collector 意外回收
-_background_tasks: Set[asyncio.Task] = set()
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("openai").setLevel(logging.WARNING)
-
-# ─────────────────────────── 模型參數映射 ───────────────────────────
-class ModelConfig:
-    __slots__ = ("max_tokens", "thinking_budget", "temperature", "top_p")
-    def __init__(
-        self,
-        max_tokens: int,
-        thinking_budget: Optional[int] = None,
-        temperature: float = 0.2,
-        top_p: float = 0.95,
-    ):
-        self.max_tokens      = max_tokens
-        self.thinking_budget = thinking_budget
-        self.temperature     = temperature
-        self.top_p           = top_p
-
-MODEL_CONFIGS: Dict[str, ModelConfig] = {
-    "nvidia/llama-3.1-nemotron-ultra-253b-v1": ModelConfig(
-        max_tokens=16384, thinking_budget=16384, temperature=1.0, top_p=0.95,
-    ),
-    "nvidia/llama-3.3-nemotron-super-49b-v1": ModelConfig(
-        max_tokens=16384, thinking_budget=8192, temperature=1.0, top_p=0.95,
-    ),
-}
-_DEFAULT_CONFIG = ModelConfig(max_tokens=16384, temperature=0.2)
-
-# ─────────────────────────── 全域 OpenAI 客戶端 ──────────────────────
-_nvidia_client: Optional[AsyncOpenAI] = None
-
-def get_nvidia_client() -> AsyncOpenAI:
-    global _nvidia_client
-    if _nvidia_client is None:
-        _nvidia_client = AsyncOpenAI(
-            base_url="[https://integrate.api.nvidia.com/v1](https://integrate.api.nvidia.com/v1)",
-            api_key=NVIDIA_API_KEY,
-            timeout=300.0,
-            max_retries=0,
-        )
-    return _nvidia_client
-
-# ─────────────────────────── Rate Limiter ─────────────────────────
-class RateLimiter:
-    def __init__(self, min_interval: float):
-        self._min_interval = min_interval
-        self._last_call_at: float = 0.0
-        self._lock = asyncio.Lock()
-
-    async def acquire(self) -> None:
-        async with self._lock:
-            now = time.monotonic()
-            wait = self._min_interval - (now - self._last_call_at)
-            if wait > 0:
-                await asyncio.sleep(wait)
-            self._last_call_at = time.monotonic()
-
-_rate_limiter = RateLimiter(RPM_MIN_INTERVAL)
-
-# ─────────────────────────── NVIDIA API ───────────────────────────
-async def _call_single_model(
-    client: AsyncOpenAI,
-    model: str,
-    system_prompt: str,
-    user_content: str,
-) -> str:
-    cfg = MODEL_CONFIGS.get(model, _DEFAULT_CONFIG)
-    extra_body = None
-    if cfg.thinking_budget is not None:
-        extra_body = {
-            "chat_template_kwargs": {"enable_thinking": False},
-            "reasoning_budget": cfg.thinking_budget,
-        }
-
-    for attempt in range(RPM_MAX_RETRIES + 1):
-        await _rate_limiter.acquire()
-        try:
-            full_text_parts: list[str] = []
-            finish_reason = None
-            
-            stream = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user",   "content": user_content},
-                ],
-                temperature=cfg.temperature,
-                top_p=cfg.top_p,
-                max_tokens=cfg.max_tokens,
-                extra_body=extra_body,
-                stream=True,
-            )
-            
-            # 【修正】合併在同一個迴圈中處理 content 與 finish_reason
-            async for chunk in stream:
-                if not chunk.choices:
-                    continue
-                choice = chunk.choices[0]
-                
-                if choice.finish_reason:
-                    finish_reason = choice.finish_reason
-                    
-                delta = choice.delta
-                if delta.content:
-                    full_text_parts.append(delta.content)
-            
-            if finish_reason == "length":
-                logger.warning("Response from %s was truncated due to max_tokens limit.", model)
-                
-            return "".join(full_text_parts)
-        
-        except RateLimitError as exc:
-            if attempt == RPM_MAX_RETRIES:
-                raise
-            retry_after = RPM_MIN_INTERVAL * (2 ** attempt)
-            try:
-                header_val = exc.response.headers.get("retry-after")
-                if header_val:
-                    retry_after = min(float(header_val), RPM_MAX_BACKOFF)
-            except Exception:
-                pass
-            retry_after = min(retry_after, RPM_MAX_BACKOFF)
-            logger.warning(
-                "Model %s 429 (attempt %d/%d) – wait %.1fs",
-                model, attempt + 1, RPM_MAX_RETRIES + 1, retry_after,
-            )
-            await asyncio.sleep(retry_after)
-
-async def call_nvidia(system_prompt: str, user_content: str) -> Tuple[str, str]:
-    client = get_nvidia_client()
-    last_error = "No request sent"
-
-    for model in NVIDIA_MODELS:
-        try:
-            text = await _call_single_model(client, model, system_prompt, user_content)
-            logger.info("NVIDIA API succeeded with model: %s", model)
-            return text, model
-        except AuthenticationError as exc:
-            raise RuntimeError(f"NVIDIA API auth failed: {exc}") from exc
-        except RateLimitError as exc:
-            last_error = f"429 Rate Limited: {exc}"
-            logger.warning("Model %s exhausted retries, fallback next", model)
-        except APIStatusError as exc:
-            last_error = f"HTTP {exc.status_code}: {exc.message[:200]}"
-            logger.warning("Model %s API error: %s", model, last_error)
-        except Exception as exc:
-            last_error = repr(exc)
-            logger.warning("Model %s exception: %s", model, last_error)
-
-    raise RuntimeError(
-        f"All NVIDIA models failed. Last error: {last_error}\n"
-        "Check API key, quota, or try again later."
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """處理 /start 指令"""
+    welcome_msg = (
+        "👋 你好！我是 **Python 程式碼優化專家** 🚀\n\n"
+        "請直接傳送一個 `.py` 檔案給我，我會使用 NVIDIA 的免費 AI 模型幫你分析程式碼，"
+        "並提供效能、可讀性以及 PEP 8 規範的優化建議與修改後的程式碼！"
     )
+    await update.message.reply_text(welcome_msg, parse_mode='Markdown')
 
-# ─────────────────────────── System Prompt ───────────────────────────
-SYSTEM_PROMPT = """你是頂級 Python 程式碼優化專家 Agent。
-
-【重要規則】
-1. 嚴格按照下列格式輸出，分隔符一字不差。
-2. 程式碼區塊內只放純 Python 原始碼，不得含 ``` fence 或任何 Markdown 標記。
-
----OPTIMIZED_CODE---
-(完整優化後的 Python 程式碼，純文字，不含 ``` fence)
----END_CODE---
-
----OPTIMIZATION_REPORT---
-## 優化摘要
-(整體說明)
-
-## 主要改動
-- 改動：原因
-
-## 效能預估
-(與原版比較)
----END_REPORT---
-"""
-
-def _parse_agent_response(raw: str) -> Tuple[str, str]:
-    """【修正】使用正則表達式，增加對 LLM 幻覺輸出的容錯能力"""
-    # 擷取 CODE 區段 (使用 re.DOTALL 讓 . 可以匹配換行符)
-    code_match = re.search(r"---OPTIMIZED_CODE---\s*(.*?)\s*---END_CODE---", raw, re.DOTALL)
-    report_match = re.search(r"---OPTIMIZATION_REPORT---\s*(.*?)\s*---END_REPORT---", raw, re.DOTALL)
-
-    if not code_match:
-        logger.warning("Missing CODE delimiters. Raw response snippet: %s", raw[:200])
-        raise ValueError("AI response missing CODE delimiters")
-
-    code = code_match.group(1).strip()
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """處理使用者上傳的檔案"""
+    document = update.message.document
     
-    # 防呆：如果 LLM 不聽話，還是在裡面加了 ```python 標籤，我們把它清掉
-    code = re.sub(r"^```python\n?", "", code, flags=re.IGNORECASE)
-    code = re.sub(r"^```\n?", "", code)
-    code = re.sub(r"\n?```$", "", code)
+    # 檢查是否為 Python 檔案
+    if not document.file_name.endswith('.py'):
+        await update.message.reply_text("⚠️ 格式錯誤：請上傳副檔名為 `.py` 的 Python 檔案喔！")
+        return
 
-    if report_match:
-        report = report_match.group(1).strip()
-    else:
-        logger.warning("Missing REPORT delimiters")
-        report = "（優化報告解析失敗，但程式碼已成功提取）"
-        
-    return code.strip(), report
+    # 限制檔案大小 (例如 100KB，避免超過 Token 限制)
+    if document.file_size > 100 * 1024:
+        await update.message.reply_text("⚠️ 檔案過大：請上傳小於 100KB 的程式碼檔案。")
+        return
 
-async def run_agent(code: str, prompt: str) -> Tuple[str, str, str]:
-    user_content = f"## 需求\n{prompt}\n\n## 原始程式碼\n```python\n{code}\n```"
-    parse_attempts = 3
+    status_message = await update.message.reply_text("📥 正在下載您的程式碼，請稍候...")
 
-    for attempt in range(1, parse_attempts + 1):
-        raw, model = await call_nvidia(SYSTEM_PROMPT, user_content)
-        try:
-            code_out, report_out = _parse_agent_response(raw)
-            return code_out, report_out, model
-        except ValueError as exc:
-            logger.warning("Parse failed (attempt %d/%d): %s", attempt, parse_attempts, exc)
-            if attempt == parse_attempts:
-                raise RuntimeError(f"AI failed to follow format after {parse_attempts} attempts.") from exc
-            await asyncio.sleep(2.0)
-
-    raise RuntimeError("run_agent: unreachable")
-
-# ─────────────────────────── Telegram Handlers ───────────────────────────
-async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text(
-        "👋 *Python 程式優化 Agent*\n\n"
-        "1️⃣ 傳送 `.py` 檔案\n"
-        "2️⃣ 輸入優化需求\n"
-        "3️⃣ 收到優化檔案與報告\n\n/cancel 取消",
-        parse_mode="Markdown",
-    )
-    return ConversationHandler.END
-
-async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    ctx.user_data.clear()
-    await update.message.reply_text("🚫 操作已取消。您可以隨時重新上傳檔案。")
-    return ConversationHandler.END
-
-async def receive_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    doc: Document = update.message.document
-    if not doc.file_name.endswith(".py"):
-        await update.message.reply_text("⚠️ 請上傳 .py 檔案。")
-        return WAIT_FILE
-
-    buf = io.BytesIO()
-    tg_file = await doc.get_file()
-    await tg_file.download_to_memory(buf)
-    code_str = buf.getvalue().decode("utf-8", errors="replace")
-
-    if len(code_str) > MAX_FILE_CHARS:
-        await update.message.reply_text(
-            f"⚠️ 檔案太大了！（目前字元數：{len(code_str):,}）\n"
-            f"請上傳小於 {MAX_FILE_CHARS:,} 字元的程式碼檔案。"
-        )
-        return WAIT_FILE
-
-    ctx.user_data.update({"code": code_str, "filename": doc.file_name})
-    await update.message.reply_text(
-        f"✅ 收到 {html.escape(doc.file_name)}（{len(code_str):,} 字元）\n\n請輸入優化需求：",
-    )
-    return WAIT_PROMPT
-
-async def _process_ai_task(
-    chat_id: int,
-    status_message_id: int,
-    code: str,
-    prompt_text: str,
-    fname: str,
-    bot,
-) -> None:
     try:
-        opt_code, report, model = await run_agent(code, prompt_text)
+        # 下載檔案到暫存區
+        file = await context.bot.get_file(document.file_id)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as temp_file:
+            await file.download_to_drive(custom_path=temp_file.name)
+            with open(temp_file.name, 'r', encoding='utf-8') as f:
+                code_content = f.read()
+        
+        # 刪除暫存檔
+        os.remove(temp_file.name)
 
-        out_name = fname.removesuffix(".py") + "_optimized.py"
-        buf = io.BytesIO(opt_code.encode("utf-8"))
-        buf.name = out_name
+        await status_message.edit_text("🧠 正在透過 NVIDIA AI 進行深度分析與優化 (這可能需要幾十秒)...")
 
-        await bot.send_document(
-            chat_id=chat_id,
-            document=buf,
-            filename=out_name,
-            caption=f"✅ 完成！（模型：{html.escape(model)}）報告 👇",
+        # 呼叫 NVIDIA API (使用 Llama-3.1-70B 模型)
+        response = await client.chat.completions.create(
+            model="meta/llama-3.1-70b-instruct",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": (
+                        "你是一個資深的 Python 程式碼優化專家。"
+                        "請分析使用者提供的程式碼，指出可以改進的地方（例如：時間複雜度、空間複雜度、可讀性、PEP 8 規範等）。"
+                        "接著，請提供優化後的完整程式碼。請務必使用「繁體中文」回答。"
+                    )
+                },
+                {"role": "user", "content": f"請幫我優化以下程式碼：\n```python\n{code_content}\n```"}
+            ],
+            temperature=0.2,
+            max_tokens=3000,
         )
 
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=status_message_id)
-        except Exception:
-            pass
+        result_text = response.choices[0].message.content
 
-        # 分段傳送報告
-        for i in range(0, len(report), TG_MSG_LIMIT):
-            await bot.send_message(
-                chat_id=chat_id,
-                text=report[i:i + TG_MSG_LIMIT],
-            )
+        # Telegram 單則訊息有 4096 字元限制
+        # 如果結果太長，存成 Markdown 檔案回傳給使用者
+        if len(result_text) > 4000:
+            await status_message.edit_text("✅ 分析完成！因為建議內容較長，我將以檔案形式傳送給您查看。")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".md", mode='w', encoding='utf-8') as res_file:
+                res_file.write(result_text)
+                res_file_path = res_file.name
+            
+            with open(res_file_path, 'rb') as f:
+                await update.message.reply_document(
+                    document=f, 
+                    filename=f"優化建議_{document.file_name}.md",
+                    caption="這是您的優化報告與程式碼 🚀"
+                )
+            os.remove(res_file_path)
+        else:
+            # 長度在限制內，直接發送訊息
+            await status_message.edit_text(result_text, parse_mode='Markdown')
+
     except Exception as e:
-        logger.exception("Background agent failed (chat_id=%s)", chat_id)
-        try:
-            await bot.edit_message_text(
-                f"❌ 發生錯誤，處理中斷。\n錯誤資訊: {str(e)[:200]}",
-                chat_id=chat_id,
-                message_id=status_message_id,
-            )
-        except Exception:
-            await bot.send_message(
-                chat_id=chat_id,
-                text="❌ 發生錯誤，處理中斷。請稍後再試或聯絡管理員。",
-            )
-
-async def receive_prompt(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
-    code = ctx.user_data.get("code", "")
-    fname = ctx.user_data.get("filename", "code.py")
-    prompt_text = update.message.text.strip()
-
-    if not code:
-        await update.message.reply_text("⚠️ 請先上傳 .py 檔案。")
-        return WAIT_FILE
-
-    msg = await update.message.reply_text(
-        "⚙️ 收到需求！已排入背景運算，這可能需要 1~2 分鐘，請耐心等候…\n"
-        "（您可以繼續進行其他操作）"
-    )
-    ctx.user_data.clear()
-
-    # 【修正】保留 Task 的參照，避免被垃圾回收中斷
-    task = asyncio.create_task(
-        _process_ai_task(
-            chat_id=update.effective_chat.id,
-            status_message_id=msg.message_id,
-            code=code,
-            prompt_text=prompt_text,
-            fname=fname,
-            bot=ctx.bot,
-        )
-    )
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-
-    return ConversationHandler.END
-
-# ─────────────────────────── 主程式 ───────────────────────────
-def _build_app() -> Application:
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    conv = ConversationHandler(
-        entry_points=[MessageHandler(filters.Document.ALL, receive_file)],
-        states={
-            WAIT_FILE:   [MessageHandler(filters.Document.ALL, receive_file)],
-            WAIT_PROMPT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_prompt)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-        per_chat=True,
-    )
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", start))
-    app.add_handler(conv)
-    return app
+        await status_message.edit_text(f"❌ 發生錯誤，無法完成優化：\n`{str(e)}`", parse_mode='Markdown')
 
 def main() -> None:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    """啟動機器人"""
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        print("❌ 錯誤: 請設定 TELEGRAM_TOKEN 環境變數")
+        return
+    if not os.getenv("NVIDIA_API_KEY"):
+        print("❌ 錯誤: 請設定 NVIDIA_API_KEY 環境變數")
+        return
 
-    app = _build_app()
-    webhook_path = f"/webhook/{TELEGRAM_TOKEN}"
-    webhook_url = f"{RENDER_URL}{webhook_path}"
+    # 建立應用程式
+    application = Application.builder().token(token).build()
+
+    # 註冊指令與訊息處理器
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+
+    print("🤖 Python 優化專家機器人已成功啟動並開始輪詢 (Polling)...")
     
-    masked_token = (
-        f"{TELEGRAM_TOKEN[:5]}...[隱藏]...{TELEGRAM_TOKEN[-5:]}"
-        if len(TELEGRAM_TOKEN) > 10 else "***"
-    )
-    logger.info("Starting webhook on port %d", PORT)
-    logger.info("Webhook URL: %s", webhook_url.replace(TELEGRAM_TOKEN, masked_token))
+    # 開始輪詢接收訊息
+    application.run_polling(allowed_updates=Update.ALL)
 
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=webhook_url,
-        url_path=webhook_path,  # 【修正】確保 url_path 與 webhook_url 路徑一致
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
-    )
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
