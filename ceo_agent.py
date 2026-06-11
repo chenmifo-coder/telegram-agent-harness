@@ -25,6 +25,8 @@ async def handle_telegram_message(update: Update, context: ContextTypes.DEFAULT_
         # 判斷是否為 Python 檔案
         if file_name.endswith('.py'):
             file_size_kb = doc.file_size / 1024
+            
+            # 確保這裡的 CEO 發言完整存在
             await status_msg.edit_text(
                 f"🧠 [CEO]: 收到名為 `{file_name}` 的 Python 檔案 (大小: {file_size_kb:.2f} KB)。\n"
                 f"這是一項技術任務，身為 CEO 我只做最高效的決策。我現在將此專案指派給我們的「資深 Python 架構師」進行效能極致優化！🚀"
