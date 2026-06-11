@@ -112,10 +112,25 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
-    print("🤖 Python 優化專家機器人已成功啟動並開始輪詢 (Polling)...")
+    # 判斷是否在 Render 平台上 (Render Web Service 會自動提供此環境變數)
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
     
-    # 開始輪詢接收訊息
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    if render_url:
+        # Webhook 模式 (Web Service)
+        port = int(os.environ.get("PORT", "10000"))
+        webhook_url = f"{render_url}/{token}"
+        print(f"🤖 偵測到 Render 網址，啟動 Webhook 模式 (Port: {port})...")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=token,
+            webhook_url=webhook_url,
+            allowed_updates=Update.ALL_TYPES
+        )
+    else:
+        # 本地開發測試時的輪詢模式
+        print("🤖 啟動輪詢 (Polling) 模式...")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
     main()
