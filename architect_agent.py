@@ -50,7 +50,8 @@ async def optimize_python_code(chat_id: int, user_instruction: str, code_content
     try:
         # 使用 llama-3.1-70b-instruct，支援高達 128K Token 上下文，非常適合處理 100KB 大檔案
         response = await client.chat.completions.create(
-            model="meta/llama-3.1-70b-instruct",
+            #model="meta/llama-3.1-70b-instruct",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
