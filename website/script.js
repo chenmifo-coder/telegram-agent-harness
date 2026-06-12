@@ -1,1 +1,1 @@
-console.log("全雲端公司網站 - 由 AI Agent 動態維護");
+console.log("\u5168\u81EA\u52D5 AI \u516C\u53F8\u7F51\u7D44 - \u7E26\u4F53\u81EA\u52D5\u7F16\u7A0B");
