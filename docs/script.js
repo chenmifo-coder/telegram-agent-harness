@@ -27,4 +27,31 @@ document.addEventListener('DOMContentLoaded', function() {
     responseDiv.style.display = 'block';
     form.reset();
   });
+
+  // ---- Theme toggle logic ----
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  function setTheme(isDark) {
+    if (isDark) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }
+
+  function getStoredTheme() {
+    return localStorage.getItem('theme') === 'dark';
+  }
+
+  // Initialize theme
+  if (getStoredTheme()) {
+    setTheme(true);
+  } else {
+    setTheme(false);
+  }
+
+  themeToggleBtn.addEventListener('click', () => {
+    const isDark = document.body.classList.contains('dark');
+    setTheme(!isDark);
+  });
 });
