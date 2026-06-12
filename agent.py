@@ -12,7 +12,7 @@ client = OpenAI(
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
 公司網站目前位於 `website/` 資料夾，包含 HTML/CSS/JS 檔案。
-你必須輸出一個嚴格符合以下格式的 JSON，不可包含其他文字：
+你必須輸出一個嚴格符合以下格式的 JSON，**不可包含任何其他文字或標記**。請直接輸出 JSON，不要加 ```json ... ``` 包裝
 
 {
   "file_updates": [
@@ -43,7 +43,7 @@ def process_user_request(user_message, current_files_content):
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.3,
-        response_format={"type": "json_object"}   # 強制 JSON 輸出
+        #response_format={"type": "json_object"}   # 強制 JSON 輸出
     )
     return json.loads(response.choices[0].message.content)
 
