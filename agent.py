@@ -42,8 +42,8 @@ def process_user_request(user_message, current_files_content):
     
     try:
         response = client.chat.completions.create(
-            #model="meta/llama-3.1-70b-instruct", 
-            model="nvidia/nemotron-3-super-120b-a12b",
+            model="meta/llama-3.1-70b-instruct", 
+            #model="nvidia/nemotron-3-super-120b-a12b",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt}
