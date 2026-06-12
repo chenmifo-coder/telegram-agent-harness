@@ -83,6 +83,45 @@ function handleKey(event) {
   else if (event.key === 'ArrowRight' && direction !== 'left') direction = 'right';
 }
 
+function setDirection(newDir) {
+  const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  if (newDir !== opposites[direction]) {
+    direction = newDir;
+  }
+}
+
+function handleTouchStart(evt) {
+  if (evt.touches.length === 1) {
+    touchStartX = evt.touches[0].clientX;
+    touchStartY = evt.touches[0].clientY;
+  }
+}
+
+function handleTouchEnd(evt) {
+  if (!touchStartX || !touchStartY) return;
+  const touchEndX = evt.changedTouches[0].clientX;
+  const touchEndY = evt.changedTouches[0].clientY;
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+  const absX = Math.abs(diffX);
+  const absY = Math.abs(diffY);
+  const threshold = 30;
+  if (absX > threshold || absY > threshold) {
+    if (absX > absY) {
+      // horizontal swipe
+      if (diffX > 0) setDirection('right');
+      else setDirection('left');
+    } else {
+      // vertical swipe
+      if (diffY > 0) setDirection('down');
+      else setDirection('up');
+    }
+  }
+  // reset
+  touchStartX = 0;
+  touchStartY = 0;
+}
+
 function resetGame() {
   snake = [
     { x: Math.floor(gridSize/2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
@@ -101,9 +140,14 @@ function resetGame() {
   draw();
 }
 
+let touchStartX = 0;
+let touchStartY = 0;
+
 window.addEventListener('load', () => {
   resizeCanvas();
 });
 window.addEventListener('resize', resizeCanvas);
 document.addEventListener('keydown', handleKey);
+document.addEventListener('touchstart', handleTouchStart, { passive: true });
+document.addEventListener('touchend', handleTouchEnd, { passive: true });
 restartBtn.addEventListener('click', resetGame);
