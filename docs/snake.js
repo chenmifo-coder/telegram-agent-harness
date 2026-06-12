@@ -22,10 +22,11 @@ if (localStorage.getItem('snakeHighScore')) {
 }
 
 function resizeCanvas() {
-  const size = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 400);
-  canvas.width = size;
-  canvas.height = size;
-  cellSize = Math.min(canvas.width, canvas.height) / gridSize;
+  const containerSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8, 400);
+  cellSize = Math.floor(containerSize / gridSize);
+  if (cellSize < 1) cellSize = 1;
+  canvas.width = cellSize * gridSize;
+  canvas.height = cellSize * gridSize;
   if (gameRunning) {
     draw();
   }
@@ -68,6 +69,11 @@ function handleKey(e) {
     case 'ArrowDown': if (direction !== 'up') nextDirection = 'down'; break;
     case 'ArrowLeft': if (direction !== 'right') nextDirection = 'left'; break;
     case 'ArrowRight': if (direction !== 'left') nextDirection = 'right'; break;
+    // Nintendo style keys: W/A/S/D
+    case 'KeyW': if (direction !== 'down') nextDirection = 'up'; break;
+    case 'KeyS': if (direction !== 'up') nextDirection = 'down'; break;
+    case 'KeyA': if (direction !== 'right') nextDirection = 'left'; break;
+    case 'KeyD': if (direction !== 'left') nextDirection = 'right'; break;
   }
 }
 
