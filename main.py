@@ -28,6 +28,10 @@ init_webhook()
 def health():
     return "OK", 200
 
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is awake and running!", 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     update = request.get_json()
