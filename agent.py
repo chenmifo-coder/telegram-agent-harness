@@ -5,9 +5,13 @@ from openai import OpenAI
 from github_utils import get_file_content, list_website_files, update_or_create_file, REPO_OWNER, REPO_NAME
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
+
+# 加入 timeout 與 max_retries 設定，避免網路波動或 API 冷啟動導致連線失敗
 client = OpenAI(
-    base_url="[https://integrate.api.nvidia.com/v1](https://integrate.api.nvidia.com/v1)",
+    base_url="https://integrate.api.nvidia.com/v1",
     api_key=NVIDIA_API_KEY,
+    timeout=60.0,
+    max_retries=3
 )
 
 SYSTEM_PROMPT = """
@@ -37,8 +41,9 @@ def process_user_request(user_message, current_files_content):
     user_prompt = f"使用者要求：{user_message}\n\n目前網站檔案內容：\n{current_files_content}\n請輸出 JSON 更新。"
     
     try:
+        # 建議將模型名稱更新為最新的 llama-3.1 確保穩定性
         response = client.chat.completions.create(
-            model="meta/llama3-70b-instruct", 
+            model="meta/llama-3.1-70b-instruct", 
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt}
