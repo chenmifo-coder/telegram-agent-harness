@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
-MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", 80_000))   # 避免超出 context window
+MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", 80_000))
 MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", 2))
 TEMPERATURE    = float(os.getenv("AGENT_TEMPERATURE", 0.3))
 
@@ -35,24 +35,26 @@ client = OpenAI(
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
 公司網站目前位於 `docs/` 資料夾，包含 HTML/CSS/JS 檔案。
-你必須輸出一個嚴格符合以下格式的 JSON，**絕對不可包含任何其他文字或標記**：
+
+【重要規則】
+1. 你的回覆必須是且僅是一個合法的 JSON 物件，不得包含任何前言、說明文字、Markdown 標記（例如 ```json）或結尾文字。
+2. JSON 結構必須嚴格符合以下格式，file_updates 陣列至少要有一筆資料：
 
 {
   "file_updates": [
     {
-      "path": "index.html",
-      "content": "完整的 HTML 內容"
-    },
-    {
-      "path": "style.css",
-      "content": "完整的 CSS 內容"
+      "path": "docs/snake.html",
+      "content": "完整的檔案內容（字串）"
     }
   ],
-  "reply_message": "簡短回覆使用者做了哪些修改"
+  "reply_message": "簡短說明做了哪些修改"
 }
 
-若使用者要求全新的設計風格或新增頁面，請直接產生對應的新檔案內容。
-保持設計現代、響應式、美觀。
+3. path 必須包含 docs/ 前綴，例如 docs/index.html、docs/snake.html。
+4. content 為完整檔案內容，不可省略或截斷。
+5. 若需要新增頁面，直接產生新檔案；若需要修改現有頁面（如導覽列），也一併更新。
+6. 保持設計現代、響應式、美觀。
+7. 絕對不可回覆空的 file_updates: []，使用者每次要求都必定對應至少一個檔案變更。
 """.strip()
 
 
@@ -60,9 +62,11 @@ SYSTEM_PROMPT = """
 
 def _extract_json(text: str) -> dict:
     """從 LLM 回覆中可靠地提取第一個完整 JSON 物件。"""
-    match = re.search(r'\{.*\}', text, re.DOTALL)
+    # 移除常見的 markdown 標記
+    cleaned = re.sub(r"```(?:json)?|```", "", text).strip()
+    match = re.search(r'\{.*\}', cleaned, re.DOTALL)
     if not match:
-        raise ValueError("LLM 回覆中找不到有效的 JSON 結構")
+        raise ValueError(f"LLM 回覆中找不到有效的 JSON 結構，原始回覆：{text[:200]}")
     return json.loads(match.group(0))
 
 
@@ -90,8 +94,8 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
     """
     user_prompt = (
         f"使用者要求：{user_message}\n\n"
-        f"目前網站檔案內容：\n{current_files_content}\n"
-        "請輸出 JSON 更新。"
+        f"目前網站檔案內容：\n{current_files_content}\n\n"
+        "請依照系統指示，輸出合法 JSON，file_updates 至少一筆，不得為空陣列。"
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -108,18 +112,26 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
                 temperature=TEMPERATURE,
             )
             raw = response.choices[0].message.content
-            logger.debug("LLM 原始回覆：%s", raw[:300])
-            return _extract_json(raw)
+            # 記錄完整回覆方便除錯
+            logger.info("LLM 原始回覆（前 500 字）：%s", raw[:500])
+
+            result = _extract_json(raw)
+
+            # 驗證 file_updates 不為空
+            if not result.get("file_updates"):
+                raise ValueError(
+                    f"LLM 回傳的 file_updates 為空，完整回覆：{raw[:300]}"
+                )
+            return result
 
         except json.JSONDecodeError as e:
             last_error = ValueError(
-                "AI 產生的內容包含無效 JSON（可能有未跳脫的引號或回覆被截斷）。"
-                f"詳細：{e}"
+                f"AI 產生的內容包含無效 JSON（可能有未跳脫的引號或回覆被截斷）。詳細：{e}"
             )
             logger.warning("JSON 解析失敗（第 %d 次）：%s", attempt, e)
         except ValueError as e:
             last_error = e
-            logger.warning("無法提取 JSON（第 %d 次）：%s", attempt, e)
+            logger.warning("驗證失敗（第 %d 次）：%s", attempt, e)
         except Exception as e:
             last_error = Exception(f"AI 呼叫失敗：{e}")
             logger.error("LLM 呼叫異常（第 %d 次）：%s", attempt, e)
