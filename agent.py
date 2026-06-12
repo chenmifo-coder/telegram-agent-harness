@@ -12,7 +12,7 @@ client = OpenAI(
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
 公司網站目前位於 `website/` 資料夾，包含 HTML/CSS/JS 檔案。
-你必須輸出一個嚴格符合以下格式的 JSON，**不可包含任何其他文字或標記**。請直接輸出 JSON，不要加 ```json ... ``` 包裝
+你必須輸出一個嚴格符合以下格式的 JSON，**不可包含任何其他文字或標記（如 ```json）**：
 
 {
   "file_updates": [
@@ -34,21 +34,24 @@ SYSTEM_PROMPT = """
 """
 
 def process_user_request(user_message, current_files_content):
-    """呼叫 NVIDIA LLM 產生檔案更新"""
     user_prompt = f"使用者要求：{user_message}\n\n目前網站檔案內容：\n{current_files_content}\n請輸出 JSON 更新。"
     response = client.chat.completions.create(
-        model="meta/llama-3.1-70b-instruct",  # NVIDIA 免費模型
+        model="meta/llama3-70b-instruct",   # 請確認你的 NVIDIA 免費模型名稱，可能是這個或 meta/llama-3.1-70b-instruct
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.3,
-        #response_format={"type": "json_object"}   # 強制 JSON 輸出
     )
-    return json.loads(response.choices[0].message.content)
+    content = response.choices[0].message.content
+    # 去除可能的 markdown 程式碼標記
+    if content.startswith("```json"):
+        content = content[7:]
+    if content.endswith("```"):
+        content = content[:-3]
+    return json.loads(content)
 
 def apply_updates(updates):
-    """將 LLM 產生的更新寫入 GitHub"""
     for item in updates["file_updates"]:
         path = item["path"]
         content = item["content"]
@@ -58,7 +61,6 @@ def apply_updates(updates):
     return True, updates["reply_message"]
 
 def handle_user_message(user_message):
-    """外部呼叫的主流程"""
     # 1. 讀取現有網站所有檔案內容
     files = list_website_files()
     current_content = {}
