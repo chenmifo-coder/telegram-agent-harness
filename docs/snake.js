@@ -151,3 +151,15 @@ document.addEventListener('keydown', handleKey);
 document.addEventListener('touchstart', handleTouchStart, { passive: true });
 document.addEventListener('touchend', handleTouchEnd, { passive: true });
 restartBtn.addEventListener('click', resetGame);
+
+// Touch control buttons
+document.addEventListener('DOMContentLoaded', () => {
+  const btnUp = document.getElementById('btn-up');
+  const btnDown = document.getElementById('btn-down');
+  const btnLeft = document.getElementById('btn-left');
+  const btnRight = document.getElementById('btn-right');
+  if (btnUp) btnUp.addEventListener('click', () => setDirection('up'));
+  if (btnDown) btnDown.addEventListener('click', () => setDirection('down'));
+  if (btnLeft) btnLeft.addEventListener('click', () => setDirection('left'));
+  if (btnRight) btnRight.addEventListener('click', () => setDirection('right'));
+});
