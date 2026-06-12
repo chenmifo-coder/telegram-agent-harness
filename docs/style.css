@@ -1,9 +1,9 @@
 /* 變數定義 */
 :root {
-  --bg-color: #f5f7fa;
+  --bg-color: #fdf2f8;
   --text-color: #1e293b;
-  --header-bg-start: #ffd700;
-  --header-bg-end: #ffa07a;
+  --header-bg-start: #fce7f3;
+  --header-bg-end: #fbcfe8;
 }
 
 body {
@@ -23,7 +23,7 @@ body.dark {
 
 header {
   background: linear-gradient(135deg, var(--header-bg-start), var(--header-bg-end));
-  color: white;
+  color: #831843;
   text-align: center;
   padding: 3rem 1rem;
   position: relative;
@@ -49,7 +49,7 @@ main {
 footer {
   text-align: center;
   padding: 2rem;
-  background: #e2e8f0;
+  background: #fce7f3;
 }
 
 ul {
@@ -64,7 +64,7 @@ li {
 }
 
 li:hover {
-  background-color: #e2e8f0;
+  background-color: #fbcfe8;
   transform: translateX(10px);
 }
 
@@ -96,13 +96,13 @@ li:hover {
   border-radius: 8px;
 }
 #restart-btn {
-  background: #ffd700;
+  background: #fce7f3;
   border: none;
   border-radius: 4px;
   transition: background 0.2s;
 }
 #restart-btn:hover {
-  background: #ffb84d;
+  background: #fbcfe8;
 }
 .game-container p {
   font-size: 0.9rem;
@@ -161,7 +161,7 @@ li:hover {
   box-sizing: border-box;
 }
 .modal-content button[type="submit"] {
-  background: #ffd700;
+  background: #fce7f3;
   border: none;
   padding: 0.5rem 1rem;
   margin-top: 1rem;
@@ -169,5 +169,5 @@ li:hover {
   cursor: pointer;
 }
 .modal-content button[type="submit"]:hover {
-  background: #ffb84d;
+  background: #fbcfe8;
 }
