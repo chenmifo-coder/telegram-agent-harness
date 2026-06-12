@@ -84,9 +84,6 @@ li:hover {
   }
 }
 
-#snake-canvas {
-  border: 1px solid black;
-}
 /* Snake game specific styles */
 #snake-canvas {
   display: block;
@@ -94,6 +91,7 @@ li:hover {
   background: #fff;
   border: 2px solid #333;
   border-radius: 8px;
+  touch-action: none;
 }
 #restart-btn {
   background: #fce7f3;
