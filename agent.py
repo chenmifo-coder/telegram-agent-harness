@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
-MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
 MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", 80_000))
 MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", 2))
 TEMPERATURE    = float(os.getenv("AGENT_TEMPERATURE", 0.3))
