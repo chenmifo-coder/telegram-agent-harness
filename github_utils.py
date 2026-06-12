@@ -9,7 +9,7 @@ BRANCH = "main"
 WEBSITE_PATH = "website/"
 
 def get_file_content(file_path):
-    url = f"[https://api.github.com/repos/](https://api.github.com/repos/){REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(url, headers=headers)
     
@@ -24,7 +24,7 @@ def get_file_content(file_path):
         return None
 
 def update_or_create_file(file_path, content, commit_msg):
-    url = f"[https://api.github.com/repos/](https://api.github.com/repos/){REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     
     # 先嘗試取得檔案的 SHA (更新現有檔案必填)
@@ -47,7 +47,7 @@ def update_or_create_file(file_path, content, commit_msg):
     return True
 
 def list_website_files():
-    url = f"[https://api.github.com/repos/](https://api.github.com/repos/){REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(url, headers=headers)
     
