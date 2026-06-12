@@ -43,14 +43,14 @@ SYSTEM_PROMPT = """
 {
   "file_updates": [
     {
-      "path": "docs/snake.html",
+      "path": "snake.html",
       "content": "完整的檔案內容（字串）"
     }
   ],
   "reply_message": "簡短說明做了哪些修改"
 }
 
-3. path 必須包含 docs/ 前綴，例如 docs/index.html、docs/snake.html。
+3. path 只需填寫檔名，例如 index.html、snake.html、style.css，不需要加任何目錄前綴。
 4. content 為完整檔案內容，不可省略或截斷。
 5. 若需要新增頁面，直接產生新檔案；若需要修改現有頁面（如導覽列），也一併更新。
 6. 保持設計現代、響應式、美觀。
@@ -60,9 +60,20 @@ SYSTEM_PROMPT = """
 
 # ── 內部工具函式 ───────────────────────────────────────────────────────────────
 
+def _strip_docs_prefix(path: str) -> str:
+    """
+    防禦性處理：不論 LLM 有沒有加 docs/ 前綴，統一移除，
+    避免 github_utils 再次加上後變成 docs/docs/...
+    """
+    for prefix in ("docs/docs/", "docs/"):
+        if path.startswith(prefix):
+            path = path[len(prefix):]
+            break
+    return path
+
+
 def _extract_json(text: str) -> dict:
     """從 LLM 回覆中可靠地提取第一個完整 JSON 物件。"""
-    # 移除常見的 markdown 標記
     cleaned = re.sub(r"```(?:json)?|```", "", text).strip()
     match = re.search(r'\{.*\}', cleaned, re.DOTALL)
     if not match:
@@ -96,6 +107,7 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
         f"使用者要求：{user_message}\n\n"
         f"目前網站檔案內容：\n{current_files_content}\n\n"
         "請依照系統指示，輸出合法 JSON，file_updates 至少一筆，不得為空陣列。"
+        "path 只填檔名，不要加 docs/ 前綴。"
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -103,7 +115,7 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
     ]
 
     last_error: Exception | None = None
-    for attempt in range(1, MAX_RETRIES + 2):   # 1 次正常 + MAX_RETRIES 次重試
+    for attempt in range(1, MAX_RETRIES + 2):
         try:
             logger.info("呼叫 LLM（第 %d 次）…", attempt)
             response = client.chat.completions.create(
@@ -112,12 +124,10 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
                 temperature=TEMPERATURE,
             )
             raw = response.choices[0].message.content
-            # 記錄完整回覆方便除錯
             logger.info("LLM 原始回覆（前 500 字）：%s", raw[:500])
 
             result = _extract_json(raw)
 
-            # 驗證 file_updates 不為空
             if not result.get("file_updates"):
                 raise ValueError(
                     f"LLM 回傳的 file_updates 為空，完整回覆：{raw[:300]}"
@@ -135,7 +145,7 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
         except Exception as e:
             last_error = Exception(f"AI 呼叫失敗：{e}")
             logger.error("LLM 呼叫異常（第 %d 次）：%s", attempt, e)
-            break   # 非解析類錯誤不重試
+            break
 
     raise last_error
 
@@ -147,11 +157,16 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
         return False, "LLM 未提供任何檔案更新內容。"
 
     for item in file_updates:
-        path    = item.get("path", "").strip()
-        content = item.get("content", "")
-        if not path:
+        raw_path = item.get("path", "").strip()
+        content  = item.get("content", "")
+        if not raw_path:
             logger.warning("跳過一筆缺少 path 的更新項目")
             continue
+
+        # 移除多餘的 docs/ 前綴，交給 github_utils 統一處理路徑
+        path = _strip_docs_prefix(raw_path)
+        if path != raw_path:
+            logger.warning("已自動移除多餘路徑前綴：%s → %s", raw_path, path)
 
         logger.info("更新檔案：%s", path)
         success = update_or_create_file(path, content, f"AI 自動更新: {path}")
@@ -165,7 +180,6 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
 def handle_user_message(user_message: str) -> str:
     """主要入口：讀取現有網站 → 規劃更新 → 套用更新 → 回傳結果訊息。"""
     try:
-        # 1. 讀取現有網站所有檔案
         files = list_website_files()
         current_content: dict[str, str] = {}
         for f in files:
@@ -177,12 +191,9 @@ def handle_user_message(user_message: str) -> str:
             return "❌ 無法讀取任何網站檔案，請確認 GitHub 存取設定。"
 
         files_text = _build_files_text(current_content)
-
-        # 2. LLM 規劃更新
         updates = process_user_request(user_message, files_text)
-
-        # 3. 套用更新
         ok, result = apply_updates(updates)
+
         if ok:
             return f"✅ 網站已更新！\n{result}\n🔗 {SITE_URL}"
         return f"❌ 更新失敗：{result}"
