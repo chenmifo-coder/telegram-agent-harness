@@ -1,15 +1,92 @@
-body { font-family: system-ui, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f5f7fa; color: #1e293b; }
-header { background: linear-gradient(135deg, #ffd700, #ffa07a); color: white; text-align: center; padding: 3rem 1rem; }
-h1 { font-size: 2.5rem; margin: 0; }
-main { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-footer { text-align: center; padding: 2rem; background: #e2e8f0; }
-ul { list-style: none; padding: 0; margin: 0; }
-li { margin-bottom: 1rem; transition: all 0.3s ease; }
-li:hover { background-color: #e2e8f0; transform: translateX(10px); }
-@media (max-width: 768px) { main { max-width: 100%; padding: 0 2rem; } }
-@media (max-width: 480px) { header { padding: 2rem 1rem; }
-h1 { font-size: 2rem; } }
-#snake-canvas { border: 1px solid black; }
+/* 變數定義 */
+:root {
+  --bg-color: #f5f7fa;
+  --text-color: #1e293b;
+  --header-bg-start: #ffd700;
+  --header-bg-end: #ffa07a;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+body.dark {
+  --bg-color: #1e293b;
+  --text-color: #f5f7fa;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+header {
+  background: linear-gradient(135deg, var(--header-bg-start), var(--header-bg-end));
+  color: white;
+  text-align: center;
+  padding: 3rem 1rem;
+  position: relative;
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+main {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+footer {
+  text-align: center;
+  padding: 2rem;
+  background: #e2e8f0;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+li {
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+li:hover {
+  background-color: #e2e8f0;
+  transform: translateX(10px);
+}
+
+@media (max-width: 768px) {
+  main {
+    max-width: 100%;
+    padding: 0 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  header {
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 2rem;
+  }
+}
+
+#snake-canvas {
+  border: 1px solid black;
+}
 /* Snake game specific styles */
 #snake-canvas {
   display: block;
