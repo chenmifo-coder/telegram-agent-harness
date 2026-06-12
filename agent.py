@@ -1,7 +1,7 @@
 import os
 import json
 from openai import OpenAI
-from github_utils import get_file_content, list_website_files, update_or_create_file
+from github_utils import get_file_content, list_website_files, update_or_create_file, REPO_OWNER, REPO_NAME
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 client = OpenAI(
