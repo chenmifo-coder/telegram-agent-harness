@@ -3,85 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>貪吃蛇小遊戲</title>
+<title>貪吃蛇小遊戲 - 街機版</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .game-container { text-align: center; margin-top: 2rem; }
-  #score-display { font-size: 1.5rem; margin-bottom: 1rem; }
-  #restart-btn { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
-  .home-btn {
-    display: inline-block;
-    margin: 1rem auto;
-    padding: 0.5rem 1rem;
-    background: #fce7f3;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    text-decoration: none;
-    color: #1e293b;
-    transition: background 0.2s;
-  }
-  .home-btn:hover {
-    background: #fbcfe8;
-  }
-  #snake-canvas {
-    display: block;
-    margin: 0 auto 1rem;
-    background: #fff;
-    border: 2px solid #333;
-    border-radius: 8px;
-    width: 90vmin;
-    height: 90vmin;
-    max-width: 400px;
-    max-height: 400px;
-  }
-  .touch-controls {
-    position: absolute;
-    bottom: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 0.5rem;
-    z-index: 10;
-  }
-  .touch-controls button {
-    background: rgba(255,255,255,0.7);
-    border: none;
-    border-radius: 50%;
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1.5rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .touch-controls button:hover {
-    background: rgba(255,255,255,0.9);
-  }
-  @media (pointer: fine) {
-    .touch-controls { display: none; }
-  }
+/* Arcade specific overrides */
+:root {
+  --arcade-bg: #0d0d0d;
+  --arcade-snake: #39ff14;
+  --arcade-food: #ff073a;
+  --arcade-grid: rgba(255,255,255,0.05);
+  --arcade-text: #ffff00;
+}
+body.arcade {
+  background: var(--arcade-bg);
+  color: var(--arcade-text);
+  font-family: 'Press Start 2P', monospace;
+}
+#snake-canvas {
+  background: #000;
+  border: 4px solid var(--arcade-snake);
+  box-shadow: 0 0 15px var(--arcade-snake);
+}
+#score-display, #high-score-display {
+  font-family: 'Press Start 2P', monospace;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px var(--arcade-text);
+}
+.home-btn, #restart-btn {
+  font-family: 'Press Start 2P', monospace;
+}
 </style>
 </head>
 <body>
 <header>
-<h1>貪吃蛇小遊戲</h1>
+<h1>貪吃蛇街機版</h1>
 <a href="index.html" class="home-btn">返回首頁</a>
 </header>
 <main>
 <div class="game-container">
 <canvas id="snake-canvas"></canvas>
+<div id="score-display">Score: 0</div>
+<div id="high-score-display">High Score: 0</div>
+<button id="restart-btn">開始遊戲</button>
+<p>使用方向鍵或螢幕上的方向按鈕控制蛇的移動，吃到紅色方塊得分，避免撞到牆壁或自己。</p>
 <div class="touch-controls">
   <button id="btn-up" aria-label="上">▲</button>
   <button id="btn-down" aria-label="下">▼</button>
   <button id="btn-left" aria-label="左">◀</button>
   <button id="btn-right" aria-label="右">▶</button>
 </div>
-<div id="score-display">Score: 0</div>
-<button id="restart-btn">重新開始</button>
-<p>使用方向鍵或螢幕上的方向按鈕控制蛇的移動，吃到紅色方塊得一分，避免撞到牆壁或自己。</p>
 </div>
 </main>
 <footer><p> 2026 全雲端公司 | 由 AI Agent 自動維護</p></footer>
