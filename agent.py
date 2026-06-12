@@ -9,7 +9,7 @@ NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
     api_key=NVIDIA_API_KEY,
-    timeout=60.0,
+    timeout=600.0,
     max_retries=3
 )
 
