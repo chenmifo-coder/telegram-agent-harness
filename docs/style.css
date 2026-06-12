@@ -10,3 +10,25 @@ li:hover { background-color: #e2e8f0; transform: translateX(10px); }
 @media (max-width: 480px) { header { padding: 2rem 1rem; }
 h1 { font-size: 2rem; } }
 #snake-canvas { border: 1px solid black; }
+/* Snake game specific styles */
+#snake-canvas {
+  display: block;
+  margin: 0 auto 1rem;
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 8px;
+}
+#restart-btn {
+  background: #ffd700;
+  border: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+#restart-btn:hover {
+  background: #ffb84d;
+}
+.game-container p {
+  font-size: 0.9rem;
+  color: #555;
+  margin-top: 1rem;
+}
