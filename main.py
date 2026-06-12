@@ -19,7 +19,6 @@ def health():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    """Telegram 更新入口"""
     update = request.get_json()
     if not update or "message" not in update:
         return "OK", 200
@@ -28,7 +27,13 @@ def webhook():
     text = update["message"].get("text", "")
     
     def handle_async():
-        reply = handle_user_message(text)
+        try:
+            reply = handle_user_message(text)
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"ERROR in handle_user_message:\n{error_trace}")   # Render 日誌會顯示
+            reply = f"❌ 內部錯誤：{str(e)}。請稍後再試。"
         send_message(chat_id, reply)
     
     threading.Thread(target=handle_async).start()
