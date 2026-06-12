@@ -1,1 +1,26 @@
-<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>貪吃蛇小遊戲</title><link rel="stylesheet" href="style.css"></head><body><header><h1>貪吃蛇小遊戲</h1></header><main><canvas id="snake-canvas" width="400" height="400"></canvas><script src="snake.js"></script></main><footer><p> 2026 全雲端公司 | 由 AI Agent 自動維護</p></footer></body></html>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>貪吃蛇小遊戲</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .game-container { text-align: center; margin-top: 2rem; }
+  #score-display { font-size: 1.5rem; margin-bottom: 1rem; }
+  #restart-btn { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+</style>
+</head>
+<body>
+<header><h1>貪吃蛇小遊戲</h1></header>
+<main>
+<div class="game-container">
+<canvas id="snake-canvas" width="400" height="400"></canvas>
+<div id="score-display">Score: 0</div>
+<button id="restart-btn">重新開始</button>
+</div>
+</main>
+<footer><p> 2026 全雲端公司 | 由 AI Agent 自動維護</p></footer>
+<script src="snake.js"></script>
+</body>
+</html>
