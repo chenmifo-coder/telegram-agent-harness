@@ -1,18 +1,19 @@
 import os
 import json
+import re
 from openai import OpenAI
 from github_utils import get_file_content, list_website_files, update_or_create_file, REPO_OWNER, REPO_NAME
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 client = OpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
+    base_url="[https://integrate.api.nvidia.com/v1](https://integrate.api.nvidia.com/v1)",
     api_key=NVIDIA_API_KEY,
 )
 
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
 公司網站目前位於 `website/` 資料夾，包含 HTML/CSS/JS 檔案。
-你必須輸出一個嚴格符合以下格式的 JSON，**不可包含任何其他文字或標記（如 ```json）**：
+你必須輸出一個嚴格符合以下格式的 JSON，**絕對不可包含任何其他文字或標記**：
 
 {
   "file_updates": [
@@ -30,50 +31,67 @@ SYSTEM_PROMPT = """
 
 若使用者要求全新的設計風格或新增頁面，請直接產生對應的新檔案內容。
 保持設計現代、響應式、美觀。
-現在開始。
 """
 
 def process_user_request(user_message, current_files_content):
     user_prompt = f"使用者要求：{user_message}\n\n目前網站檔案內容：\n{current_files_content}\n請輸出 JSON 更新。"
-    response = client.chat.completions.create(
-        model="meta/llama3-70b-instruct",   # 請確認你的 NVIDIA 免費模型名稱，可能是這個或 meta/llama-3.1-70b-instruct
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.3,
-    )
-    content = response.choices[0].message.content
-    # 去除可能的 markdown 程式碼標記
-    if content.startswith("```json"):
-        content = content[7:]
-    if content.endswith("```"):
-        content = content[:-3]
-    return json.loads(content)
+    
+    try:
+        response = client.chat.completions.create(
+            model="meta/llama3-70b-instruct", 
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content
+        
+        # 使用正規表達式提取 JSON 區塊，避免 LLM 回答夾雜廢話導致解析失敗
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            json_str = match.group(0)
+            return json.loads(json_str)
+        else:
+            raise ValueError("無法從 LLM 回覆中找到有效的 JSON 格式")
+            
+    except json.JSONDecodeError as e:
+        print(f"JSON 解析錯誤: {str(e)}\n原始內容: {content}")
+        raise ValueError("AI 回傳的資料格式錯誤，請再試一次。")
+    except Exception as e:
+        raise Exception(f"AI 處理請求時發生錯誤: {str(e)}")
 
 def apply_updates(updates):
-    for item in updates["file_updates"]:
+    for item in updates.get("file_updates", []):
         path = item["path"]
         content = item["content"]
         success = update_or_create_file(path, content, f"AI 自動更新: {path}")
         if not success:
-            return False, f"更新 {path} 失敗"
-    return True, updates["reply_message"]
+            return False, f"更新 {path} 失敗，請檢查 GitHub 權限或 API 限制。"
+    return True, updates.get("reply_message", "未提供修改說明")
 
 def handle_user_message(user_message):
-    # 1. 讀取現有網站所有檔案內容
-    files = list_website_files()
-    current_content = {}
-    for f in files:
-        current_content[f] = get_file_content(f) or ""
-    files_text = "\n\n".join([f"=== {f} ===\n{content}" for f, content in current_content.items()])
-    
-    # 2. LLM 規劃更新
-    updates = process_user_request(user_message, files_text)
-    
-    # 3. 套用更新
-    ok, result = apply_updates(updates)
-    if ok:
-        return f"✅ 網站已更新！\n{result}\n🔗 https://{REPO_OWNER}.github.io/{REPO_NAME}/"
-    else:
-        return f"❌ 更新失敗：{result}"
+    try:
+        # 1. 讀取現有網站所有檔案內容
+        files = list_website_files()
+        current_content = {}
+        for f in files:
+            file_data = get_file_content(f)
+            if file_data is not None:
+                current_content[f] = file_data
+                
+        files_text = "\n\n".join([f"=== {f} ===\n{content}" for f, content in current_content.items()])
+        
+        # 2. LLM 規劃更新
+        updates = process_user_request(user_message, files_text)
+        
+        # 3. 套用更新
+        ok, result = apply_updates(updates)
+        if ok:
+            return f"✅ 網站已更新！\n{result}\n🔗 https://{REPO_OWNER}.github.io/{REPO_NAME}/"
+        else:
+            return f"❌ 更新失敗：{result}"
+            
+    except Exception as e:
+        print(f"處理訊息時發生嚴重錯誤: {e}")
+        return f"❌ 系統發生錯誤：{str(e)}"
