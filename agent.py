@@ -56,18 +56,17 @@ def process_user_request(user_message, current_files_content):
         if match:
             json_str = match.group(1).strip()
         else:
-            # 2. 如果沒有標記，再退回尋找大括號 {}
+            # 2. 如果沒有標記，退回尋找大括號 {} (這裡沒有括號，對應 group(0) 取整個符合的字串)
             match = re.search(r'\{.*\}', content, re.DOTALL)
             if match:
                 json_str = match.group(0).strip()
             else:
-                raise ValueError("無法從 LLM 回覆中找到有效的 JSON")
+                raise ValueError("無法從 LLM 回覆中找到有效的 JSON 結構")
                 
         return json.loads(json_str)
             
     except json.JSONDecodeError as e:
         print(f"JSON 解析錯誤: {str(e)}\n原始內容: {content}")
-        # 將錯誤訊息具體化，回傳給使用者
         raise ValueError("AI 產生的程式碼中有未跳脫的雙引號，或內容太長被截斷，導致格式損毀。請嘗試縮小要求範圍（例如：只要求修改 HTML）。")
     except Exception as e:
         raise Exception(f"AI 處理請求時發生錯誤: {str(e)}")
