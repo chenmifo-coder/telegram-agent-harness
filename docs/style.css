@@ -9,3 +9,4 @@ li:hover { background-color: #e2e8f0; transform: translateX(10px); }
 @media (max-width: 768px) { main { max-width: 100%; padding: 0 2rem; } }
 @media (max-width: 480px) { header { padding: 2rem 1rem; }
 h1 { font-size: 2rem; } }
+#snake-canvas { border: 1px solid black; }
