@@ -25,6 +25,17 @@
   .home-btn:hover {
     background: #fbcfe8;
   }
+  #snake-canvas {
+    display: block;
+    margin: 0 auto 1rem;
+    background: #fff;
+    border: 2px solid #333;
+    border-radius: 8px;
+    width: 90vmin;
+    height: 90vmin;
+    max-width: 400px;
+    max-height: 400px;
+  }
 </style>
 </head>
 <body>
@@ -34,7 +45,7 @@
 </header>
 <main>
 <div class="game-container">
-<canvas id="snake-canvas" width="400" height="400"></canvas>
+<canvas id="snake-canvas"></canvas>
 <div id="score-display">Score: 0</div>
 <button id="restart-btn">重新開始</button>
 <p>使用方向鍵控制蛇的移動，吃到紅色方塊得一分，避免撞到牆壁或自己。</p>
