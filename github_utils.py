@@ -6,10 +6,12 @@ GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 REPO_OWNER = os.environ["REPO_OWNER"]
 REPO_NAME = os.environ["REPO_NAME"]
 BRANCH = "main"
-WEBSITE_PATH = "website/"
+
+# 將原本的 "website" 改為 "docs"
+WEBSITE_PATH = "docs"
 
 def get_file_content(file_path):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(url, headers=headers)
     
@@ -17,17 +19,15 @@ def get_file_content(file_path):
         content_b64 = resp.json()["content"]
         return base64.b64decode(content_b64).decode("utf-8")
     elif resp.status_code == 404:
-        # 檔案不存在是正常的 (可能是 LLM 想要創建新檔案)
         return None
     else:
         print(f"❌ GitHub API Error (Get): {resp.status_code} - {resp.text}")
         return None
 
 def update_or_create_file(file_path, content, commit_msg):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}{file_path}"
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     
-    # 先嘗試取得檔案的 SHA (更新現有檔案必填)
     resp = requests.get(url, headers=headers)
     sha = resp.json().get("sha") if resp.status_code == 200 else None
     
@@ -52,8 +52,10 @@ def list_website_files():
     resp = requests.get(url, headers=headers)
     
     if resp.status_code == 200:
-        # 只抓取檔案，忽略子資料夾
         return [item["name"] for item in resp.json() if item["type"] == "file"]
+    elif resp.status_code == 404:
+        print(f"ℹ️ '{WEBSITE_PATH}' 資料夾尚不存在，視為空目錄。")
+        return []
     else:
         print(f"❌ GitHub API Error (List): {resp.status_code} - {resp.text}")
         return []
