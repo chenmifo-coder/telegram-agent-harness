@@ -6,9 +6,11 @@ from agent import handle_user_message
 
 app = Flask(__name__)
 
-# 取得 Render 自動產生的公開 URL
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com")
+# 全域標誌，確保只設定 Webhook 一次
+webhook_configured = False
+
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -25,7 +27,6 @@ def webhook():
     chat_id = update["message"]["chat"]["id"]
     text = update["message"].get("text", "")
     
-    # 非同步處理 (避免超過 3 秒回應)
     def handle_async():
         reply = handle_user_message(text)
         send_message(chat_id, reply)
@@ -33,11 +34,15 @@ def webhook():
     threading.Thread(target=handle_async).start()
     return "OK", 200
 
-@app.before_first_request
-def setup():
-    """啟動時自動設定 Telegram Webhook"""
-    webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
-    set_webhook(TELEGRAM_TOKEN, webhook_url)
+@app.before_request
+def setup_webhook():
+    """在第一個請求前設定 Webhook (僅一次)"""
+    global webhook_configured
+    if not webhook_configured and RENDER_EXTERNAL_URL:
+        webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
+        set_webhook(TELEGRAM_TOKEN, webhook_url)
+        webhook_configured = True
+        print(f"Webhook set to {webhook_url}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
