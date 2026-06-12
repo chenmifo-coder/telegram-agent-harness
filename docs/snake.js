@@ -1,65 +1,52 @@
 const canvas = document.getElementById('snake-canvas');
 const ctx = canvas.getContext('2d');
-const gridSize = 20; // number of cells per side
-let cellSize = Math.min(canvas.width, canvas.height) / gridSize;
-let snake = [
-  { x: Math.floor(gridSize/2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-  { x: (Math.floor(gridSize/2)-1) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-  { x: (Math.floor(gridSize/2)-2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-];
-let food = { x: 0, y: 0 };
+const gridSize = 20;
+let cellSize;
+let snake = [];
+let food = {};
 let direction = 'right';
+let nextDirection = direction;
 let score = 0;
-let gameInterval;
+let highScore = 0;
+let lastRender = 0;
 const scoreDisplay = document.getElementById('score-display');
+const highScoreDisplay = document.getElementById('high-score-display');
 const restartBtn = document.getElementById('restart-btn');
+let gameRunning = false;
+let touchStartX = 0, touchStartY = 0;
+
+// Load high score
+if (localStorage.getItem('snakeHighScore')) {
+  highScore = parseInt(localStorage.getItem('snakeHighScore'), 10);
+  highScoreDisplay.textContent = `High Score: ${highScore}`;
+}
 
 function resizeCanvas() {
-  // Adjust canvas size based on container while maintaining square
   const size = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.7, 400);
   canvas.width = size;
   canvas.height = size;
   cellSize = Math.min(canvas.width, canvas.height) / gridSize;
-  // Redraw
-  draw();
+  if (gameRunning) {
+    draw();
+  }
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  snake.forEach(part => {
-    ctx.fillStyle = 'green';
-    ctx.fillRect(part.x, part.y, cellSize, cellSize);
-  });
-  ctx.fillStyle = 'red';
-  ctx.fillRect(food.x, food.y, cellSize, cellSize);
-  ctx.fillStyle = 'black';
-  ctx.font = `${Math.round(cellSize * 0.4)}px Arial`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(`Score: ${score}`, 10, 10);
-}
-
-function update() {
-  const head = { x: snake[0].x, y: snake[0].y };
-  if (direction === 'right') head.x += cellSize;
-  else if (direction === 'left') head.x -= cellSize;
-  else if (direction === 'up') head.y -= cellSize;
-  else if (direction === 'down') head.y += cellSize;
-
-  if (head.x === food.x && head.y === food.y) {
-    score++;
-    scoreDisplay.textContent = `Score: ${score}`;
-    placeFood();
-    snake.unshift(head);
-  } else {
-    snake.unshift(head);
-    snake.pop();
-  }
-
-  if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
-    clearInterval(gameInterval);
-    alert('Game Over!');
-  }
+function initGame() {
+  snake = [
+    { x: Math.floor(gridSize/2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+    { x: (Math.floor(gridSize/2)-1) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+    { x: (Math.floor(gridSize/2)-2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+  ];
+  direction = 'right';
+  nextDirection = direction;
+  score = 0;
+  scoreDisplay.textContent = `Score: ${score}`;
+  placeFood();
+  gameRunning = true;
+  restartBtn.textContent = '重新開始';
+  window.cancelAnimationFrame(animationFrameId);
+  lastRender = 0;
+  requestAnimationFrame(gameLoop);
 }
 
 function placeFood() {
@@ -67,7 +54,6 @@ function placeFood() {
     x: Math.floor(Math.random() * gridSize) * cellSize,
     y: Math.floor(Math.random() * gridSize) * cellSize
   };
-  // Ensure not on snake
   for (let segment of snake) {
     if (segment.x === food.x && segment.y === food.y) {
       placeFood();
@@ -76,11 +62,13 @@ function placeFood() {
   }
 }
 
-function handleKey(event) {
-  if (event.key === 'ArrowUp' && direction !== 'down') direction = 'up';
-  else if (event.key === 'ArrowDown' && direction !== 'up') direction = 'down';
-  else if (event.key === 'ArrowLeft' && direction !== 'right') direction = 'left';
-  else if (event.key === 'ArrowRight' && direction !== 'left') direction = 'right';
+function handleKey(e) {
+  switch(e.key) {
+    case 'ArrowUp': if (direction !== 'down') nextDirection = 'up'; break;
+    case 'ArrowDown': if (direction !== 'up') nextDirection = 'down'; break;
+    case 'ArrowLeft': if (direction !== 'right') nextDirection = 'left'; break;
+    case 'ArrowRight': if (direction !== 'left') nextDirection = 'right'; break;
+  }
 }
 
 function setDirection(newDir) {
@@ -108,51 +96,141 @@ function handleTouchEnd(evt) {
   const threshold = 30;
   if (absX > threshold || absY > threshold) {
     if (absX > absY) {
-      // horizontal swipe
       if (diffX > 0) setDirection('right');
       else setDirection('left');
     } else {
-      // vertical swipe
       if (diffY > 0) setDirection('down');
       else setDirection('up');
     }
   }
-  // reset
   touchStartX = 0;
   touchStartY = 0;
 }
 
-function resetGame() {
-  snake = [
-    { x: Math.floor(gridSize/2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-    { x: (Math.floor(gridSize/2)-1) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-    { x: (Math.floor(gridSize/2)-2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
-  ];
-  placeFood();
-  direction = 'right';
-  score = 0;
-  scoreDisplay.textContent = `Score: ${score}`;
-  if (gameInterval) clearInterval(gameInterval);
-  gameInterval = setInterval(() => {
-    update();
-    draw();
-  }, 100);
-  draw();
+function update(deltaTime) {
+  // Base speed 100ms, decrease by 5ms per point, min 30ms
+  const baseSpeed = 100;
+  const speed = Math.max(30, baseSpeed - score * 5);
+  if (!update.lastTime) update.lastTime = 0;
+  update.lastTime += deltaTime;
+  if (update.lastTime < speed) return;
+  update.lastTime = 0;
+
+  const head = { x: snake[0].x, y: snake[0].y };
+  switch(direction) {
+    case 'right': head.x += cellSize; break;
+    case 'left': head.x -= cellSize; break;
+    case 'up': head.y -= cellSize; break;
+    case 'down': head.y += cellSize; break;
+  }
+
+  // check food
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('snakeHighScore', highScore);
+      highScoreDisplay.textContent = `High Score: ${highScore}`;
+    }
+    scoreDisplay.textContent = `Score: ${score}`;
+    placeFood();
+    snake.unshift(head);
+  } else {
+    snake.unshift(head);
+    snake.pop();
+  }
+
+  // wall collision
+  if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+    gameOver();
+    return;
+  }
+  // self collision
+  for (let i = 1; i < snake.length; i++) {
+    if (snake[i].x === head.x && snake[i].y === head.y) {
+      gameOver();
+      return;
+    }
+  }
+}
+update.lastTime = 0;
+
+function gameOver() {
+  gameRunning = false;
+  restartBtn.textContent = '開始遊戲';
+  alert('Game Over! Your score: ' + score);
 }
 
-let touchStartX = 0;
-let touchStartY = 0;
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // optional grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= gridSize; i++) {
+    const pos = i * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(pos, 0);
+    ctx.lineTo(pos, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, pos);
+    ctx.lineTo(canvas.width, pos);
+    ctx.stroke();
+  }
+  // draw snake
+  ctx.fillStyle = '#39ff14';
+  snake.forEach((segment, index) => {
+    ctx.fillRect(segment.x, segment.y, cellSize, cellSize);
+    // add glow effect for head
+    if (index === 0) {
+      ctx.shadowColor = '#39ff14';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(segment.x, segment.y, cellSize, cellSize);
+      ctx.shadowBlur = 0;
+    }
+  });
+  // draw food
+  ctx.fillStyle = '#ff073a';
+  ctx.fillRect(food.x, food.y, cellSize, cellSize);
+  ctx.shadowColor = '#ff073a';
+  ctx.shadowBlur = 8;
+  ctx.fillRect(food.x, food.y, cellSize, cellSize);
+  ctx.shadowBlur = 0;
+}
 
+let animationFrameId = null;
+function gameLoop(timestamp) {
+  if (!lastRender) lastRender = timestamp;
+  const deltaTime = timestamp - lastRender;
+  lastRender = timestamp;
+  update(deltaTime);
+  draw();
+  if (gameRunning) {
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+}
+
+// Event listeners
 window.addEventListener('load', () => {
   resizeCanvas();
+  // show start screen
+  restartBtn.textContent = '開始遊戲';
 });
 window.addEventListener('resize', resizeCanvas);
 document.addEventListener('keydown', handleKey);
 document.addEventListener('touchstart', handleTouchStart, { passive: true });
 document.addEventListener('touchend', handleTouchEnd, { passive: true });
-restartBtn.addEventListener('click', resetGame);
+restartBtn.addEventListener('click', () => {
+  if (!gameRunning) {
+    initGame();
+  } else {
+    // if running, reset
+    initGame();
+  }
+});
 
-// Touch control buttons
+// Touch controls
 document.addEventListener('DOMContentLoaded', () => {
   const btnUp = document.getElementById('btn-up');
   const btnDown = document.getElementById('btn-down');
