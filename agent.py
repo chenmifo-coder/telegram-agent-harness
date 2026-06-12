@@ -6,7 +6,6 @@ from github_utils import get_file_content, list_website_files, update_or_create_
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 
-# 加入 timeout 與 max_retries 設定，避免網路波動或 API 冷啟動導致連線失敗
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
     api_key=NVIDIA_API_KEY,
@@ -14,9 +13,10 @@ client = OpenAI(
     max_retries=3
 )
 
+# 這裡也將提示詞中的 website/ 改成 docs/
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
-公司網站目前位於 `website/` 資料夾，包含 HTML/CSS/JS 檔案。
+公司網站目前位於 `docs/` 資料夾，包含 HTML/CSS/JS 檔案。
 你必須輸出一個嚴格符合以下格式的 JSON，**絕對不可包含任何其他文字或標記**：
 
 {
@@ -41,7 +41,6 @@ def process_user_request(user_message, current_files_content):
     user_prompt = f"使用者要求：{user_message}\n\n目前網站檔案內容：\n{current_files_content}\n請輸出 JSON 更新。"
     
     try:
-        # 建議將模型名稱更新為最新的 llama-3.1 確保穩定性
         response = client.chat.completions.create(
             model="meta/llama-3.1-70b-instruct", 
             messages=[
@@ -52,7 +51,6 @@ def process_user_request(user_message, current_files_content):
         )
         content = response.choices[0].message.content
         
-        # 使用正規表達式提取 JSON 區塊，避免 LLM 回答夾雜廢話導致解析失敗
         match = re.search(r'\{.*\}', content, re.DOTALL)
         if match:
             json_str = match.group(0)
