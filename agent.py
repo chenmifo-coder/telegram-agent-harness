@@ -1,25 +1,4 @@
 import os
-import json
-import re
-import logging
-from openai import OpenAI
-from github_utils import (
-    get_file_content,
-    list_website_files,
-    update_or_create_file,
-    REPO_OWNER,
-    REPO_NAME,
-)
-
-# ── 設定 ──────────────────────────────────────────────────────────────────────
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
-
-NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
-MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
-#MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
-#MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-import os
 import re
 import json
 import logging
