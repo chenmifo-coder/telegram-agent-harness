@@ -3,10 +3,10 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>FMTX AI 創新公司</title>
+<title>遊戲專區 - FMTX AI 創新公司</title>
 <link rel='stylesheet' href='style.css'>
 <style>
-/* Games page enhancements */
+/* Games page specific enhancements */
 :root {
   --game-bg: #f8fafc;
   --game-card-bg: #ffffff;
@@ -61,46 +61,14 @@ body { background: var(--game-bg); }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(45deg, transparent, rgba(99,102,241,0.08), transparent);
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
   opacity: 0;
   transition: opacity 0.3s;
 }
 .game-card:hover::after { opacity: 1; }
-.game-badge {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: #ff6b6b;
-  color: white;
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 10px;
-  font-weight: 600;
-}
-.game-card h3 { margin: 0.5rem 0 0.8rem; color: #831843; font-size: 1.4rem; }
-.game-card p { color: #555; font-size: 0.95rem; margin-bottom: 1rem; min-height: 3.2rem; }
-.game-card .play-now {
-  display: inline-block;
-  background: linear-gradient(135deg, #ec4899, #10b981);
-  color: white;
-  padding: 0.6rem 1.2rem;
-  border-radius: 20px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-.game-card .play-now:hover { background: linear-gradient(135deg, #fbcfe8, #86efac); }
-.game-card .coin-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.9rem;
-  color: #f59e0b;
-  margin-top: 0.8rem;
-}
-@media (max-width: 480px) {
-  .game-card { width: 90%; }
-}
+.game-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.game-title { font-size: 1.25rem; margin: 0.5rem 0; color: var(--game-primary); }
+.game-desc { font-size: 0.9rem; color: #555; }
 </style>
 </head>
 <body>
@@ -110,7 +78,7 @@ body { background: var(--game-bg); }
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
 <div class="dropdown">
-  <button class="dropbtn">選單 ▼</button>
+  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
   <div class="dropdown-content">
     <a href='index.html'>首頁</a>
     <a href='games.html' class='active'>遊戲專區</a>
@@ -121,60 +89,38 @@ body { background: var(--game-bg); }
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
-<main class="main-content" style="padding: 2rem;">
-<h2>遊戲列表</h2>
-
-<div class="section-title">熱門推薦</div>
+<main class="main-content">
+<section>
+<h2 class="section-title">精選遊戲</h2>
 <div class="game-list">
-  <a href="snake-game.html" class="game-card">
-    <div class="game-badge">熱門</div>
-    <h3>貪吃蛇</h3>
-    <p>經典街機版貪吃蛇遊戲，使用方向鍵或螢幕觸控控制。吃到食物成長，挑戰最高分數！</p>
-    <div class="coin-icon">🪙 獲得金幣解鎖皮膚</div>
-    <div class="play-now">開始遊戲</div>
-  </a>
-  <a href="tetris.html" class="game-card">
-    <div class="game-badge">新上線</div>
-    <h3>俄羅斯方塊</h3>
-    <p>經典俄羅斯方塊遊戲，使用方向鍵移動與旋轉方塊，消除行數獲得分數。挑戰無限模式！</p>
-    <div class="coin-icon">🪙 解鎖特殊方塊主題</div>
-    <div class="play-now">開始遊戲</div>
-  </a>
-  <a href="rubik.html" class="game-card">
-    <div class="game-badge">益智</div>
-    <h3>魯比克方塊</h3>
-    <p>3D 互動魯比克方塊，可自由旋轉、亂序與計時。挑戰你的空間思維與速度！</p>
-    <div class="coin-icon">🪙 換裝炫彩貼紙</div>
-    <div class="play-now">開始遊戲</div>
-  </a>
+<a href="#" class="game-card">
+<div class="game-icon">🎮</div>
+<h3 class="game-title">益智解謎</h3>
+<p class="game-desc">挑戰邏輯與空間思維的經典解謎遊戲。</p>
+</a>
+<a href="#" class="game-card">
+<div class="game-icon">🚀</div>
+<h3 class="game-title">太空競速</h3>
+<p class="game-desc">高速飛行躲避障礙，考驗反應速度。</p>
+</a>
+<a href="#" class="game-card">
+<div class="game-icon">🧩</div>
+<h3 class="game-title">方塊消除</h3>
+<p class="game-desc">匹配相同顏色方塊，消除得分。</p>
+</a>
+<a href="#" class="game-card">
+<div class="game-icon">🏎️</div>
+<h3 class="game-title">賽車競速</h3>
+<p class="game-desc">在各種賽道上爭取第一名。</p>
+</a>
 </div>
-
-<div class="section-title">即將上線</div>
-<p style="text-align:center; color:#666; font-style:italic;">
-  敬請期待更多 AI 驅動的創新遊戲，包含即時對戰、合作任務與 NFT 皮膚系統！
-</p>
+</section>
 </main>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
-<button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
-<div id='contact-modal' class='modal'>
-<div class='modal-content'>
-<span class='close-btn'>&times;</span>
-<h2>聯絡我們</h2>
-<form id='contact-form'>
-<label for='cname'>姓名：</label>
-<input type='text' id='cname' name='cname' required><br><br>
-<label for='cemail'>Email：</label>
-<input type='email' id='cemail' name='cemail' required><br><br>
-<label for='cmsg'>訊息：</label>
-<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
-<button type='submit'>送出</button>
-</form>
-<div id='form-response' style='margin-top:1rem; display:none;'></div>
-</div>
-</div>
-<script src='script.js'></script>
+
+<script src='script.js' defer></script>
 </body>
 </html>
