@@ -10,6 +10,8 @@
 :root {
   --cubie-size: 40px;
   --gap: 2px;
+  --card-bg: rgba(255,255,255,0.9);
+  --card-radius: 16px;
 }
 body {
   perspective: 800px;
@@ -57,6 +59,10 @@ body {
 #controls {
   text-align: center;
   margin-top: 1rem;
+  background: var(--card-bg);
+  padding: 1rem;
+  border-radius: var(--card-radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 #controls button {
   margin: 0.3rem;
