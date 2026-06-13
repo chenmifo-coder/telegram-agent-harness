@@ -128,6 +128,7 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
         f"使用者要求：{user_message}\n\n"
         f"目前網站檔案內容：\n{current_files_content}\n\n"
         "請依照系統指示的格式輸出，用 <<<FILENAME:檔名>>> ... <<<END>>> 包住每個檔案內容。"
+        "記得最後加上 <<<REPLY>>>...<<<END>>> 說明修改內容。"
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
