@@ -25,22 +25,71 @@ body.dark {
 }
 
 header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: linear-gradient(135deg, var(--header-bg-start), var(--header-bg-end));
   color: #831843;
-  text-align: center;
   padding: 3rem 1rem;
   position: relative;
 }
 
+.title {
+  flex: 1;
+  text-align: center;
+}
+
 .theme-toggle {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+  position: static;
   background: none;
   border: none;
   color: inherit;
   font-size: 1.5rem;
   cursor: pointer;
+  margin-left: auto;
+}
+
+/* Dropdown menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.dropbtn {
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+}
+.dropbtn:hover {
+  color: #831843;
+}
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: var(--bg-color);
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+  left: 0;
+  top: 100%;
+}
+.dropdown-content a {
+  color: var(--text-color);
+  padding: 0.8rem 1rem;
+  text-decoration: none;
+  display: block;
+}
+.dropdown-content a:hover {
+  background-color: #fbcfe8;
+}
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+.dropdown-content a.active {
+  font-weight: bold;
+  color: #831843;
 }
 
 /* Dashboard layout */
