@@ -18,7 +18,9 @@ NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-MAX_FILE_CHARS = int(os.getenv("MAX_FILE_CHARS", 80_000))
+MAX_FILE_CHARS      = int(os.getenv("MAX_FILE_CHARS", 80_000))
+# 每個檔案在摘要模式下最多顯示的字元數（約前 60 行）
+PREVIEW_CHARS_PER_FILE = int(os.getenv("PREVIEW_CHARS_PER_FILE", 1_500))
 MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", 2))
 TEMPERATURE    = float(os.getenv("AGENT_TEMPERATURE", 0.3))
 
@@ -105,19 +107,54 @@ def _parse_llm_response(text: str) -> dict:
     return {"file_updates": file_updates, "reply_message": reply}
 
 
-def _build_files_text(current_content: dict[str, str]) -> str:
-    """將檔案字典組合成提示用文字，並在超出限制時截斷。"""
+def _build_files_text(current_content: dict[str, str], preview_only: bool = False) -> str:
+    """
+    將檔案字典組合成提示用文字。
+    preview_only=True：每個檔案只傳前 PREVIEW_CHARS_PER_FILE 字元的預覽（適合小修改）。
+    preview_only=False：傳完整內容，總量上限 MAX_FILE_CHARS（適合大改動）。
+    """
     parts = []
     total = 0
+
     for path, content in current_content.items():
-        snippet = content[:MAX_FILE_CHARS - total] if total < MAX_FILE_CHARS else ""
-        parts.append(f"=== {path} ===\n{snippet}")
-        total += len(snippet)
-        if total >= MAX_FILE_CHARS:
-            logger.warning("檔案內容已截斷，已達 %d 字元上限", MAX_FILE_CHARS)
-            parts.append("...(內容過長，已截斷)")
-            break
+        if preview_only:
+            snippet = content[:PREVIEW_CHARS_PER_FILE]
+            truncated = len(content) > PREVIEW_CHARS_PER_FILE
+            block = f"=== {path} ({len(content)} 字元) ===\n{snippet}"
+            if truncated:
+                block += f"\n...（僅顯示前 {PREVIEW_CHARS_PER_FILE} 字元，完整內容已省略）"
+        else:
+            remaining = MAX_FILE_CHARS - total
+            if remaining <= 0:
+                break
+            snippet = content[:remaining]
+            truncated = len(content) > remaining
+            block = f"=== {path} ===\n{snippet}"
+            if truncated:
+                logger.warning("檔案 %s 內容已截斷（總量達上限 %d）", path, MAX_FILE_CHARS)
+                block += "\n...（內容過長，已截斷）"
+            total += len(snippet)
+
+        parts.append(block)
+
     return "\n\n".join(parts)
+
+
+def _estimate_scope(user_message: str) -> str:
+    """
+    根據使用者訊息長度與關鍵字，判斷是小修改（preview）還是大改動（full）。
+    回傳 'preview' 或 'full'。
+    """
+    FULL_KEYWORDS = (
+        "重新設計", "打掉重練", "全新", "整個網站", "所有頁面",
+        "完全改", "重構", "重寫", "新增頁面", "新增一個",
+    )
+    for kw in FULL_KEYWORDS:
+        if kw in user_message:
+            logger.info("改動範圍判斷：full（命中關鍵字：%s）", kw)
+            return "full"
+    logger.info("改動範圍判斷：preview（小修改，使用摘要模式）")
+    return "preview"
 
 
 # ── 核心邏輯 ──────────────────────────────────────────────────────────────────
@@ -237,7 +274,8 @@ def handle_user_message(user_message: str) -> str:
             return _answer_query(current_content)
 
         # 3b. 修改類：LLM 產生更新並寫回 GitHub
-        files_text = _build_files_text(current_content)
+        scope = _estimate_scope(user_message)
+        files_text = _build_files_text(current_content, preview_only=(scope == "preview"))
         updates = process_user_request(user_message, files_text)
         ok, result = apply_updates(updates)
 
