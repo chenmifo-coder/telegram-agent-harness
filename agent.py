@@ -72,12 +72,14 @@ def _parse_llm_response(text: str) -> dict:
     解析自訂分隔符格式，回傳：
     {"file_updates": [{"path": "...", "content": "..."}], "reply_message": "..."}
     """
+    # >>{2,3} 容錯：允許模型輸出 >> 或 >>> 結尾（常見筆誤）
+    # \s* 容錯：允許標記與內容之間有多餘空白或換行
     file_pattern = re.compile(
-        r'<<<FILENAME:(?P<path>[^>]+)>>>\n(?P<content>.*?)<<<END>>>',
+        r'<<<FILENAME:(?P<path>[^>\n]+?)>{2,3}\s*\n(?P<content>.*?)<<<END>{2,3}',
         re.DOTALL
     )
     reply_pattern = re.compile(
-        r'<<<REPLY>>>\n(?P<reply>.*?)<<<END>>>',
+        r'<<<REPLY>{2,3}\s*\n(?P<reply>.*?)<<<END>{2,3}',
         re.DOTALL
     )
 
