@@ -25,50 +25,50 @@
 </header>
 
 <section class="hero">
-<h2>智慧自動化，讓業務飛躍</h2>
-<p>我們提供 24/7 全自動化 AI Agent，協助企業輕鬆管理數位資產、提升效率與降低成本。</p>
-<a href='#features' class="cta-button">了解更多</a>
+  <div class="hero-content">
+    <h2>智慧自動化，讓業務飛躍</h2>
+    <p>我們提供 24/7 全自動化 AI Agent，協助企業輕鬆管理數位資產、提升效率與降低成本。</p>
+    <a href='#features' class="cta-button">了解更多</a>
+  </div>
 </section>
 
-<main class="main-content" style="padding: 2rem;">
-<div class="scene">
-<div class="dashboard-container">
-<aside class="sidebar">
-<h2>選單</h2>
-<ul>
-<li><a href='#'>Dashboard</a></li>
-<li><a href='#'>設定</a></li>
-<li><a href='#'>用戶</a></li>
-</ul>
-</aside>
-
-<section class="main-content-inner">
-<h2>關於我們</h2>
-<p>我們提供 24/7 全自動化 AI Agent，幫助企業輕鬆管理數位資產。</p>
+<section id="features" class="features">
+  <h2>核心功能</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h3>AI 自動化</h3>
+      <p class="value">24/7</p>
+      <p>全天候 AI Agent 持續工作，無需人工干預。</p>
+    </div>
+    <div class="card">
+      <h3>數位資產管理</h3>
+      <p class="value">安全</p>
+      <p>端到端加密，確保資料隱私與合規。</p>
+    </div>
+    <div class="card">
+      <h3>可擴充解決方案</h3>
+      <p class="value">彈性</p>
+      <p>依據業務成長自動調整資源與效能。</p>
+    </div>
+  </div>
 </section>
 
-<aside class="data-sidebar">
-<div class="data-card">
-<h3>活躍用戶數</h3>
-<p class="value">1,234</p>
-</div>
-<div class="data-card">
-<h3>今日任務數</h3>
-<p class="value">5,678</p>
-</div>
-<div class="data-card">
-<h3>系統運行時間</h3>
-<p class="value">99.9%</p>
-</div>
-</aside>
-</div>
-</div>
-</main>
+<section class="about">
+  <h2>關於我們</h2>
+  <p>FMTX AI 創新公司致力於將最前沿的人工智慧技術與雲端基礎設施結合，提供簡單易用的自動化平台。我們的團由資深工程師與AI專家組成，確保每項解決方案都經過嚴格測試與優化。</p>
+</section>
+
+<section class="cta-section">
+  <h2>準備好開始了嗎？</h2>
+  <p>立即體驗我們的免費試用，看看 AI 如何改變您的業務。</p>
+  <a href='#' class="cta-button">免費試用</a>
+</section>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
+
 <div id='contact-modal' class='modal'>
 <div class='modal-content'>
 <span class='close-btn'>&times;</span>
@@ -86,39 +86,5 @@
 </div>
 </div>
 <script src='script.js'></script>
-<script>
-// 3D interactive effect: move dashboard based on mouse position
-document.addEventListener('DOMContentLoaded', () => {
-  const container = document.querySelector('.dashboard-container');
-  const scene = document.querySelector('.scene');
-  if (!container || !scene) return;
-
-  let rotateX = 0, rotateY = 0;
-  const maxRotate = 8; // degrees
-
-  scene.addEventListener('mousemove', e => {
-    const rect = scene.getBoundingClientRect();
-    const x = e.clientX - rect.left; // x position within the element
-    const y = e.clientY - rect.top;  // y position within the element
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    // Calculate offset from center, normalize to -1..1
-    const offsetX = (x - centerX) / centerX;
-    const offsetY = (y - centerY) / centerY;
-
-    // Apply rotation with smoothing
-    rotateY = offsetX * maxRotate;
-    rotateX = -offsetY * maxRotate; // invert Y for natural feel
-
-    container.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-  });
-
-  // Reset on leave
-  scene.addEventListener('mouseleave', () => {
-    container.style.transform = 'rotateX(0deg) rotateY(0deg)';
-  });
-});
-</script>
 </body>
 </html>
