@@ -5,6 +5,82 @@
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <title>FMTX AI 創新公司</title>
 <link rel='stylesheet' href='style.css'>
+<style>
+/* Games page enhancements */
+.game-list { justify-content: center; gap: 2.5rem; }
+.game-card { 
+  background: #fff; 
+  border-radius: 12px; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+  width: 280px; 
+  padding: 1.8rem; 
+  text-align: center; 
+  transition: transform 0.25s, box-shadow 0.25s; 
+  position: relative; 
+  overflow: hidden;
+}
+.game-card:hover { 
+  transform: translateY(-8px) scale(1.02); 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12); 
+}
+.game-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent, rgba(99,102,241,0.08), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.game-card:hover::after { opacity: 1; }
+.game-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #ff6b6b;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.game-card h3 { margin: 0.5rem 0 0.8rem; color: #831843; font-size: 1.4rem; }
+.game-card p { color: #555; font-size: 0.95rem; margin-bottom: 1rem; min-height: 3.2rem; }
+.game-card .play-now {
+  display: inline-block;
+  background: linear-gradient(135deg, #ec4899, #10b981);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 20px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.game-card .play-now:hover { background: linear-gradient(135deg, #fbcfe8, #86efac); }
+.game-card .coin-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: #f59e0b;
+  margin-top: 0.8rem;
+}
+.section-title {
+  text-align: center;
+  margin: 2.5rem 0 1.5rem;
+  font-size: 1.8rem;
+  color: #6366f1;
+  position: relative;
+}
+.section-title::after {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, #ec4899, #10b981);
+  margin: 0.5rem auto 0;
+  border-radius: 2px;
+}
+</style>
 </head>
 <body>
 <header>
@@ -26,23 +102,36 @@
 
 <main class="main-content" style="padding: 2rem;">
 <h2>遊戲列表</h2>
-<div class="game-list" style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;">
+
+<div class="section-title">熱門推薦</div>
+<div class="game-list" style="display: flex; flex-wrap: wrap; gap: 2.5rem; justify-content: center;">
   <a href="snake-game.html" class="game-card" style="text-decoration: none; color: inherit;">
-    <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 260px; padding: 1.5rem; text-align: center; transition: transform 0.2s;">
-      <h3 style="margin-top: 0; color: #831843;">貪吃蛇</h3>
-      <p style="color: #555; font-size: 0.9rem;">經典街機版貪吃蛇遊戲，使用方向鍵或螢幕觸控控制。</p>
-      <div style="margin-top: 1rem; font-size: 0.8rem; color: #888;">點擊開始遊戲</div>
-    </div>
+    <div class="game-badge">熱門</div>
+    <h3>貪吃蛇</h3>
+    <p>經典街機版貪吃蛇遊戲，使用方向鍵或螢幕觸控控制。吃到食物成長，挑戰最高分數！</p>
+    <div class="coin-icon">🪙 獲得金幣解鎖皮膚</div>
+    <a href="snake-game.html" class="play-now">開始遊戲</a>
   </a>
   <a href="tetris.html" class="game-card" style="text-decoration: none; color: inherit;">
-    <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 260px; padding: 1.5rem; text-align: center; transition: transform 0.2s;">
-      <h3 style="margin-top: 0; color: #831843;">俄羅斯方塊</h3>
-      <p style="color: #555; font-size: 0.9rem;">經典俄羅斯方塊遊戲，使用方向鍵移動與旋轉方塊，消除行數獲得分數。</p>
-      <div style="margin-top: 1rem; font-size: 0.8rem; color: #888;">點擊開始遊戲</div>
-    </div>
+    <div class="game-badge">新上線</div>
+    <h3>俄羅斯方塊</h3>
+    <p>經典俄羅斯方塊遊戲，使用方向鍵移動與旋轉方塊，消除行數獲得分數。挑戰無限模式！</p>
+    <div class="coin-icon">🪙 解鎖特殊方塊主題</div>
+    <a href="tetris.html" class="play-now">開始遊戲</a>
   </a>
-  <!-- 以後可在此加入更多遊戲卡片 -->
+  <a href="rubik.html" class="game-card" style="text-decoration: none; color: inherit;">
+    <div class="game-badge">益智</div>
+    <h3>魯比克方塊</h3>
+    <p>3D 互動魯比克方塊，可自由旋轉、亂序與計時。挑戰你的空間思維與速度！</p>
+    <div class="coin-icon">🪙 換裝炫彩貼紙</div>
+    <a href="rubik.html" class="play-now">開始遊戲</a>
+  </a>
 </div>
+
+<div class="section-title">即將上線</div>
+<p style="text-align:center; color:#666; font-style:italic;">
+  敬請期待更多 AI 驅動的創新遊戲，包含即時對戰、合作任務與 NFT 皮膚系統！
+</p>
 </main>
 
 <footer>
