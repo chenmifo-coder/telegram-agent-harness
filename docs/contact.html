@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang='zh-TW'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>聯絡我們 - FMTX全雲端 AI 創新科技股份有限公司</title>
+<link rel='stylesheet' href='style.css'>
+</head>
+<body>
+<header>
+<h1>[FMTX AI 創新科技]</h1>
+<p>AI 驅動的下一代雲端解決方案</p>
+<nav>
+<ul>
+<li><a href='index.html'>首頁</a></li>
+<li><a href='snake.html'>貪吃蛇小遊戲</a></li>
+<li><a href='pricing.html'>定價方案</a></li>
+<li><a href='contact.html' class='active'>聯絡我們</a></li>
+</ul>
+</nav>
+<button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
+</header>
+
+<main class="main-content" style="padding: 2rem;">
+<h2>聯絡我們</h2>
+<form id='contact-form'>
+<label for='cname'>姓名：</label>
+<input type='text' id='cname' name='cname' required><br><br>
+<label for='cemail'>Email：</label>
+<input type='email' id='cemail' name='cemail' required><br><br>
+<label for='cmsg'>訊息：</label>
+<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='form-response' style='margin-top:1rem; display:none;'></div>
+</main>
+
+<footer>
+<p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
+<button id='contact-btn' class='contact-btn'>聯絡我們</button>
+</footer>
+<div id='contact-modal' class='modal'>
+<div class='modal-content'>
+<span class='close-btn'>&times;</span>
+<h2>聯絡我們</h2>
+<form id='contact-form'>
+<label for='cname'>姓名：</label>
+<input type='text' id='cname' name='cname' required><br><br>
+<label for='cemail'>Email：</label>
+<input type='email' id='cemail' name='cemail' required><br><br>
+<label for='cmsg'>訊息：</label>
+<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='form-response' style='margin-top:1rem; display:none;'></div>
+</div>
+</div>
+<script src='script.js'></script>
+</body>
+</html>
