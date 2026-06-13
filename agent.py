@@ -33,16 +33,23 @@ client = OpenAI(
     max_retries=3,
 )
 
-# ── Prompt ────────────────────────────────────────────────────────────────────
-# 【核心改動】改用自訂分隔符格式，完全不依賴 LLM 輸出合法 JSON。
-# LLM 只需用 <<<FILENAME>>> ... <<<END>>> 包住每個檔案，
-# Python 端用 regex 解析，避免 HTML 雙引號跳脫問題。
+# ── Prompts ───────────────────────────────────────────────────────────────────
+
+# 意圖分類：輕量判斷是否需要修改檔案，避免查詢類請求觸發不必要的寫入
+INTENT_SYSTEM_PROMPT = """
+判斷使用者的訊息是「查詢/閒聊」還是「修改網站」。
+只回覆一個詞：QUERY 或 MODIFY。
+- QUERY：使用者想查詢資訊、列出檔案、閒聊，或明確說不要修改任何東西
+- MODIFY：使用者想新增、修改、刪除、重新設計網站任何內容
+""".strip()
+
+# 主要修改 Prompt，使用自訂分隔符避免 HTML 雙引號跳脫問題
 SYSTEM_PROMPT = """
 你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
 公司網站目前位於 docs/ 資料夾，包含 HTML/CSS/JS 檔案。
 
 【輸出格式規則】
-請用以下格式輸出每一個需要新增或修改的檔案，有幾個檔案就重複幾次：
+請用以下格式輸出每一個需要新增或修改的檔案：
 
 <<<FILENAME:index.html>>>
 （完整的 index.html 內容，不可省略或截斷）
@@ -53,18 +60,67 @@ SYSTEM_PROMPT = """
 <<<END>>>
 
 <<<REPLY>>>
-（簡短說明做了哪些修改）
+（必填）簡短說明做了哪些修改
 <<<END>>>
 
 【注意事項】
 - FILENAME 後面只填檔名，不要加 docs/ 等目錄前綴
 - 每個檔案區塊之間可以有空行
+- <<<REPLY>>>...<<<END>>> 為必填，每次都必須輸出
 - <<<END>>> 之後不要有任何多餘說明
 - 保持設計現代、響應式、美觀
 """.strip()
 
 
 # ── 內部工具函式 ───────────────────────────────────────────────────────────────
+
+def _classify_intent(user_message: str) -> str:
+    """
+    用輕量 LLM 呼叫判斷意圖，回傳 'QUERY' 或 'MODIFY'。
+    若呼叫失敗，預設當作 MODIFY（安全側）。
+    """
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": INTENT_SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
+            ],
+            temperature=0.0,
+            max_tokens=5,
+        )
+        result = response.choices[0].message.content.strip().upper()
+        logger.info("意圖分類結果：%s", result)
+        return "QUERY" if "QUERY" in result else "MODIFY"
+    except Exception as e:
+        logger.warning("意圖分類失敗，預設為 MODIFY：%s", e)
+        return "MODIFY"
+
+
+def _answer_query(user_message: str, current_content: dict[str, str]) -> str:
+    """針對查詢類請求，直接回答，不修改任何檔案。"""
+    file_list = "\n".join(f"- {f}" for f in current_content.keys())
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": (
+                    "你是網站助理，只回答使用者的問題，不修改任何檔案。"
+                    "用繁體中文簡短回答。"
+                )},
+                {"role": "user", "content": (
+                    f"使用者問題：{user_message}\n\n"
+                    f"目前網站檔案清單：\n{file_list}"
+                )},
+            ],
+            temperature=0.3,
+            max_tokens=300,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        # 即使 LLM 失敗，至少回傳檔案清單
+        return f"目前網站檔案：\n{file_list}"
+
 
 def _strip_docs_prefix(path: str) -> str:
     """移除 LLM 可能誤加的 docs/ 前綴，避免 github_utils 重複加後變成 docs/docs/。"""
@@ -76,13 +132,9 @@ def _strip_docs_prefix(path: str) -> str:
 
 def _parse_llm_response(text: str) -> dict:
     """
-    解析自訂分隔符格式，回傳與原本相容的 dict：
-    {
-        "file_updates": [{"path": "...", "content": "..."}],
-        "reply_message": "..."
-    }
+    解析自訂分隔符格式，回傳：
+    {"file_updates": [{"path": "...", "content": "..."}], "reply_message": "..."}
     """
-    # 解析所有檔案區塊
     file_pattern = re.compile(
         r'<<<FILENAME:(?P<path>[^>]+)>>>\n(?P<content>.*?)<<<END>>>',
         re.DOTALL
@@ -127,8 +179,8 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
     user_prompt = (
         f"使用者要求：{user_message}\n\n"
         f"目前網站檔案內容：\n{current_files_content}\n\n"
-        "請依照系統指示的格式輸出，用 <<<FILENAME:檔名>>> ... <<<END>>> 包住每個檔案內容。"
-        "記得最後加上 <<<REPLY>>>...<<<END>>> 說明修改內容。"
+        "請依照系統指示的格式輸出，用 <<<FILENAME:檔名>>> ... <<<END>>> 包住每個檔案內容，"
+        "並在最後輸出 <<<REPLY>>>...<<<END>>>。"
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -146,9 +198,7 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
             )
             raw = response.choices[0].message.content
             logger.info("LLM 原始回覆（前 500 字）：%s", raw[:500])
-
-            result = _parse_llm_response(raw)
-            return result
+            return _parse_llm_response(raw)
 
         except ValueError as e:
             last_error = e
@@ -188,8 +238,9 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
 
 
 def handle_user_message(user_message: str) -> str:
-    """主要入口：讀取現有網站 → 規劃更新 → 套用更新 → 回傳結果訊息。"""
+    """主要入口：意圖分類 → 查詢直接回答 / 修改則更新網站。"""
     try:
+        # 1. 讀取現有網站所有檔案
         files = list_website_files()
         current_content: dict[str, str] = {}
         for f in files:
@@ -200,6 +251,15 @@ def handle_user_message(user_message: str) -> str:
         if not current_content:
             return "❌ 無法讀取任何網站檔案，請確認 GitHub 存取設定。"
 
+        # 2. 意圖分類
+        intent = _classify_intent(user_message)
+
+        # 3a. 查詢類：直接回答，不動檔案
+        if intent == "QUERY":
+            logger.info("意圖為查詢，跳過檔案修改")
+            return _answer_query(user_message, current_content)
+
+        # 3b. 修改類：LLM 產生更新並寫回 GitHub
         files_text = _build_files_text(current_content)
         updates = process_user_request(user_message, files_text)
         ok, result = apply_updates(updates)
