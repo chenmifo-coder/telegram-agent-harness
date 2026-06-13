@@ -1,36 +1,43 @@
 import os
 import base64
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-REPO_OWNER = os.environ["REPO_OWNER"]
-REPO_NAME = os.environ["REPO_NAME"]
-BRANCH = "main"
-
-# 將原本的 "website" 改為 "docs"
+REPO_OWNER   = os.environ["REPO_OWNER"]
+REPO_NAME    = os.environ["REPO_NAME"]
+BRANCH       = "main"
 WEBSITE_PATH = "docs"
 
-def get_file_content(file_path):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    resp = requests.get(url, headers=headers)
-    
+HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+
+
+def _file_url(file_path: str) -> str:
+    return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
+
+
+def _get_sha(file_path: str) -> str | None:
+    """取得檔案的 sha，刪除與更新都需要。找不到回傳 None。"""
+    resp = requests.get(_file_url(file_path), headers=HEADERS)
     if resp.status_code == 200:
-        content_b64 = resp.json()["content"]
-        return base64.b64decode(content_b64).decode("utf-8")
+        return resp.json().get("sha")
+    return None
+
+
+def get_file_content(file_path: str) -> str | None:
+    resp = requests.get(_file_url(file_path), headers=HEADERS)
+    if resp.status_code == 200:
+        return base64.b64decode(resp.json()["content"]).decode("utf-8")
     elif resp.status_code == 404:
         return None
-    else:
-        print(f"❌ GitHub API Error (Get): {resp.status_code} - {resp.text}")
-        return None
+    logger.error("GitHub API Error (Get): %s - %s", resp.status_code, resp.text)
+    return None
 
-def update_or_create_file(file_path, content, commit_msg):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    
-    resp = requests.get(url, headers=headers)
-    sha = resp.json().get("sha") if resp.status_code == 200 else None
-    
+
+def update_or_create_file(file_path: str, content: str, commit_msg: str) -> bool:
+    sha = _get_sha(file_path)
     data = {
         "message": commit_msg,
         "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
@@ -38,24 +45,47 @@ def update_or_create_file(file_path, content, commit_msg):
     }
     if sha:
         data["sha"] = sha
-        
-    put_resp = requests.put(url, headers=headers, json=data)
-    
-    if put_resp.status_code not in [200, 201]:
-        print(f"❌ GitHub API Error (Put): {put_resp.status_code} - {put_resp.text}")
+
+    resp = requests.put(_file_url(file_path), headers=HEADERS, json=data)
+    if resp.status_code not in [200, 201]:
+        logger.error("GitHub API Error (Put): %s - %s", resp.status_code, resp.text)
         return False
     return True
 
-def list_website_files():
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    resp = requests.get(url, headers=headers)
-    
+
+def delete_file(file_path: str, commit_msg: str | None = None) -> bool:
+    """
+    刪除 docs/ 底下的指定檔案。
+    回傳 True 表示成功，False 表示失敗（包含檔案不存在）。
+    """
+    sha = _get_sha(file_path)
+    if sha is None:
+        logger.warning("刪除失敗：找不到檔案 %s（可能已不存在）", file_path)
+        return False
+
+    data = {
+        "message": commit_msg or f"AI 自動刪除: {file_path}",
+        "sha": sha,
+        "branch": BRANCH,
+    }
+    resp = requests.delete(_file_url(file_path), headers=HEADERS, json=data)
+    if resp.status_code == 200:
+        logger.info("已刪除檔案：%s", file_path)
+        return True
+
+    logger.error("GitHub API Error (Delete): %s - %s", resp.status_code, resp.text)
+    return False
+
+
+def list_website_files() -> list[str]:
+    resp = requests.get(
+        f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}",
+        headers=HEADERS,
+    )
     if resp.status_code == 200:
         return [item["name"] for item in resp.json() if item["type"] == "file"]
     elif resp.status_code == 404:
-        print(f"ℹ️ '{WEBSITE_PATH}' 資料夾尚不存在，視為空目錄。")
+        logger.info("'%s' 資料夾尚不存在，視為空目錄。", WEBSITE_PATH)
         return []
-    else:
-        print(f"❌ GitHub API Error (List): {resp.status_code} - {resp.text}")
-        return []
+    logger.error("GitHub API Error (List): %s - %s", resp.status_code, resp.text)
+    return []
