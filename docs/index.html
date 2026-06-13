@@ -5,33 +5,6 @@
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <title>FMTX AI 創新公司</title>
 <link rel='stylesheet' href='style.css'>
-<style>
-/* 3D scene for homepage */
-.scene {
-  perspective: 1000px;
-  padding: 2rem;
-}
-.dashboard-container {
-  transform-style: preserve-3d;
-  transition: transform 0.1s ease-out;
-}
-.sidebar, .main-content, .data-sidebar {
-  transform-style: preserve-3d;
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-  padding: 1.5rem;
-  margin: 0.5rem;
-  background: var(--bg-color);
-}
-/* subtle depth for cards */
-.data-card {
-  transform: translateZ(20px);
-  transition: transform 0.2s;
-}
-.data-card:hover {
-  transform: translateZ(40px) scale(1.02);
-}
-</style>
 </head>
 <body>
 <header>
@@ -51,6 +24,13 @@
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
+<section class="hero">
+<h2>智慧自動化，讓業務飛躍</h2>
+<p>我們提供 24/7 全自動化 AI Agent，協助企業輕鬆管理數位資產、提升效率與降低成本。</p>
+<a href='#features' class="cta-button">了解更多</a>
+</section>
+
+<main class="main-content" style="padding: 2rem;">
 <div class="scene">
 <div class="dashboard-container">
 <aside class="sidebar">
@@ -62,12 +42,10 @@
 </ul>
 </aside>
 
-<main class="main-content">
-<section>
+<section class="main-content-inner">
 <h2>關於我們</h2>
 <p>我們提供 24/7 全自動化 AI Agent，幫助企業輕鬆管理數位資產。</p>
 </section>
-</main>
 
 <aside class="data-sidebar">
 <div class="data-card">
@@ -85,6 +63,7 @@
 </aside>
 </div>
 </div>
+</main>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
