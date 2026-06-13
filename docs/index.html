@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang='zh-TW'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>FMTX AI 創新公司</title>
+<link rel='stylesheet' href='style.css'>
+</head>
+<body>
+<header>
+<div class="title">
+<h1>FMTX AI 創新公司</h1>
+<p>AI 驅動的下一代雲端解決方案</p>
+</div>
+<div class="dropdown">
+  <button class="dropbtn">選單 ▼</button>
+  <div class="dropdown-content">
+    <a href='index.html' class='active'>首頁</a>
+    <a href='games.html'>遊戲專區</a>
+    <a href='pricing.html'>定價方案</a>
+    <a href='contact.html'>聯絡我們</a>
+  </div>
+</div>
+<button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
+</header>
+
+<main class="main-content">
+<!-- 英雄區 -->
+<section class="hero">
+  <div class="hero-content">
+    <h2>迎向智慧未來</h2>
+    <p>我們提供 AI 驅動的雲端服務，協助企業提升效率、降低成本並加速創新。</p>
+    <a href='#features' class="cta-button">了解功能</a>
+  </div>
+</section>
+
+<!-- 功能卡片 -->
+<section id="features" class="features">
+  <h2>核心功能</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h3>🤖 自動化任務</h3>
+      <div class="value">5000+</div>
+      <p>每月可執行數千次自動化工作流程，減少人工操作。</p>
+    </div>
+    <div class="card">
+      <h3>📊 智慧分析</h3>
+      <div class="value">即時</div>
+      <p>利用 AI 模型即時分析資料，提供決策支援。</p>
+    </div>
+    <div class="card">
+      <h3>☁️ 雲端彈性</h3>
+      <div class="value">無限</div>
+      <p>依需求自動擴展計算資源，確保高可用性。</p>
+    </div>
+    <div class="card">
+      <h3>🔐 安全合規</h3>
+      <div class="value">企業級</div>
+      <p>符合國際安全標準，保護資料隱私與完整性。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 關於我們 -->
+<section class="about">
+  <h2>關於 FMTX AI</h2>
+  <p>FMTX AI 創新公司致力於將最前沿的人工智慧技術與雲端基礎設施結合，提供客戶簡單易用、高效能的解決方案。我們的團隊由 AI 研究員、雲端架構師與業界專家組成，持續推出創新產品，協助各產業實現數位轉型。</p>
+</section>
+
+<!-- CTA 區塊 -->
+<section class="cta-section">
+  <h2>準備好開始了嗎？</h2>
+  <p>立即註冊免費試用，體驗 AI 自動化的力量。</p>
+  <a href='contact.html' class="cta-button">聯絡我們</a>
+</section>
+</main>
+
+<footer>
+<p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
+<button id='contact-btn' class='contact-btn'>聯絡我們</button>
+</footer>
+<div id='contact-modal' class='modal'>
+<div class='modal-content'>
+<span class='close-btn'>&times;</span>
+<h2>聯絡我們</h2>
+<form id='contact-form'>
+<label for='cname'>姓名：</label>
+<input type='text' id='cname' name='cname' required><br><br>
+<label for='cemail'>Email：</label>
+<input type='email' id='cemail' name='cemail' required><br><br>
+<label for='cmsg'>訊息：</label>
+<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='form-response' style='margin-top:1rem; display:none;'></div>
+</div>
+</div>
+<script src='script.js'></script>
+</body>
+</html>
