@@ -116,7 +116,7 @@ function handleTouchEnd(evt) {
 function update(deltaTime) {
   // Base speed 100ms, decrease by 5ms per point, min 30ms
   const baseSpeed = 100;
-  const speed = Math.max(30, baseSpeed - score * 5);
+  const speed = Math.max(30, baseScore - score * 5);
   if (!update.lastTime) update.lastTime = 0;
   update.lastTime += deltaTime;
   if (update.lastTime < speed) return;
