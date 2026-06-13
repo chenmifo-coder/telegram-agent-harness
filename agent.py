@@ -6,6 +6,7 @@ from github_utils import (
     get_file_content,
     list_website_files,
     update_or_create_file,
+    delete_file,
     REPO_OWNER,
     REPO_NAME,
 )
@@ -101,10 +102,14 @@ def _parse_llm_response(text: str) -> dict:
         if reply != "（AI 未提供修改說明）":
             logger.warning("<<<REPLY>>> 區塊缺失，使用前綴文字作為說明：%s", reply[:80])
 
-    if not file_updates:
-        raise ValueError(f"LLM 回覆中找不到任何 <<<FILENAME:...>>> 區塊，原始回覆：{text[:300]}")
+    # 解析刪除指令：<<<DELETE:檔名>>>
+    delete_pattern = re.compile(r'<<<DELETE:(?P<path>[^>\n]+?)>{2,3}')
+    file_deletes = [m.group("path").strip() for m in delete_pattern.finditer(text)]
 
-    return {"file_updates": file_updates, "reply_message": reply}
+    if not file_updates and not file_deletes:
+        raise ValueError(f"LLM 回覆中找不到任何 <<<FILENAME:...>>> 或 <<<DELETE:...>>> 區塊，原始回覆：{text[:300]}")
+
+    return {"file_updates": file_updates, "file_deletes": file_deletes, "reply_message": reply}
 
 
 def _build_files_text(current_content: dict[str, str], preview_only: bool = False) -> str:
@@ -180,10 +185,15 @@ SYSTEM_PROMPT = """
 （完整的 index.html 內容）
 <<<END>>>
 
+第三步（選用），若需要刪除某些檔案，輸出刪除指令：
+<<<DELETE:snake.html>>>
+<<<DELETE:snake.js>>>
+
 【注意事項】
 - <<<REPLY>>> 必須是第一個區塊，在所有 FILENAME 之前
-- FILENAME 後面只填檔名，不要加 docs/ 等目錄前綴
-- 每個檔案區塊之間可以有空行
+- FILENAME 與 DELETE 後面只填檔名，不要加 docs/ 等目錄前綴
+- <<<DELETE:檔名>>> 不需要 <<<END>>>，一行一個
+- 每個區塊之間可以有空行
 - <<<END>>> 之後不要有任何多餘說明
 - 保持設計現代、響應式、美觀
 """.strip()
@@ -227,11 +237,14 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
 
 
 def apply_updates(updates: dict) -> tuple[bool, str]:
-    """將 LLM 產生的檔案更新寫回 GitHub，回傳 (成功, 訊息)。"""
+    """將 LLM 產生的檔案更新與刪除寫回 GitHub，回傳 (成功, 訊息)。"""
     file_updates = updates.get("file_updates", [])
-    if not file_updates:
-        return False, "LLM 未提供任何檔案更新內容。"
+    file_deletes = updates.get("file_deletes", [])
 
+    if not file_updates and not file_deletes:
+        return False, "LLM 未提供任何檔案更新或刪除內容。"
+
+    # 寫入／更新
     for item in file_updates:
         raw_path = item.get("path", "").strip()
         content  = item.get("content", "")
@@ -247,6 +260,15 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
         success = update_or_create_file(path, content, f"AI 自動更新: {path}")
         if not success:
             return False, f"更新 {path} 失敗，請檢查 GitHub 權限或 API 限制。"
+
+    # 刪除
+    for raw_path in file_deletes:
+        path = _strip_docs_prefix(raw_path.strip())
+        logger.info("刪除檔案：%s", path)
+        success = delete_file(path, f"AI 自動刪除: {path}")
+        if not success:
+            # 刪除失敗不中斷流程，只記錄警告
+            logger.warning("刪除 %s 失敗（可能已不存在），繼續執行", path)
 
     reply = updates.get("reply_message") or "（AI 未提供修改說明）"
     return True, reply
