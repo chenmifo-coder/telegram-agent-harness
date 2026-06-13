@@ -70,6 +70,42 @@ body {
 #controls button:hover {
   background: #fbcfe8;
 }
+/* Timer & stats */
+#stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+#stats div {
+  text-align: center;
+}
+#timer {
+  font-weight: 600;
+  font-family: monospace;
+}
+/* Store button */
+#skin-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ec4899, #10b981);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.2s;
+}
+#skin-btn:hover { transform: translateY(-2px); }
+/* Coin display */
+#coin-display {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #f59e0b;
+  text-align: center;
+}
 </style>
 </head>
 <body>
@@ -91,6 +127,13 @@ body {
 <div id="controls">
   <button id="scramble-btn">亂序</button>
   <button id="reset-btn">復原</button>
+  <button id="skin-btn">皮膚商店</button>
+</div>
+<div id="coin-display">Coins: <span id="coin-count">0</span></div>
+<div id="stats">
+  <div>時間：<span id="timer">00:00</span></div>
+  <div>最佳：<span id="best">00:00</span></div>
+  <div>步數：<span id="steps">0</span></div>
 </div>
 </main>
 
@@ -115,7 +158,7 @@ body {
 </div>
 </div>
 <script>
-// Rubik's Cube implementation
+// Rubik's Cube implementation with timer, steps, coins
 const container = document.getElementById('rubik-container');
 const cubieSize = 40;
 const gap = 2;
@@ -219,6 +262,7 @@ document.getElementById('scramble-btn').addEventListener('click', () => {
   container.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
   rotateX = rx;
   rotateY = ry;
+  startTimer();
 });
 
 // Reset
@@ -226,6 +270,76 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   rotateX = 0;
   rotateY = 0;
   container.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  stopTimer();
+  steps = 0;
+  document.getElementById('steps').textContent = steps;
+});
+
+// Timer
+let timerInterval = null;
+let startTime = 0;
+let elapsed = 0;
+let running = false;
+function startTimer() {
+  if (running) return;
+  running = true;
+  startTime = Date.now() - elapsed;
+  timerInterval = setInterval(() => {
+    elapsed = Date.now() - startTime;
+    const totalSeconds = Math.floor(elapsed / 1000);
+    const mins = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const secs = String(totalSeconds % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${mins}:${secs}`;
+  }, 1000);
+}
+function stopTimer() {
+  if (!running) return;
+  running = false;
+  clearInterval(timerInterval);
+  elapsed = Date.now() - startTime;
+  // update best
+  const totalSeconds = Math.floor(elapsed / 1000);
+  const bestStr = localStorage.getItem('rubikBest') || '9999';
+  const bestSec = parseInt(bestStr,10);
+  if (totalSeconds < bestSec) {
+    localStorage.setItem('rubikBest', totalSeconds);
+    const mins = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const secs = String(totalSeconds % 60).padStart(2, '0');
+    document.getElementById('best').textContent = `${mins}:${secs}`;
+  }
+}
+
+// Steps counter
+let steps = 0;
+function incrementSteps() {
+  steps++;
+  document.getElementById('steps').textContent = steps;
+  // earn coins every 5 steps
+  if (steps % 5 === 0) {
+    const coins = parseInt(localStorage.getItem('rubikCoins')||'0',10) + 1;
+    localStorage.setItem('rubikCoins', coins);
+    document.getElementById('coin-count').textContent = coins;
+  }
+}
+// Hook steps to rotation events (simple: count each manual rotation)
+const originalScramble = document.getElementById('scramble-btn').onclick;
+document.getElementById('scramble-btn').onclick = function() {
+  incrementSteps();
+  if (originalScramble) originalScramble();
+};
+// We'll also count manual drag rotations roughly: on mouseup if dragged
+let wasDragging = false;
+container.addEventListener('mousedown', () => { wasDragging = true; });
+container.addEventListener('mouseup', () => {
+  if (wasDragging) {
+    incrementSteps();
+    wasDragging = false;
+  }
+});
+container.addEventListener('touchend', () => {
+  if (isDragging) {
+    incrementSteps();
+  }
 });
 
 // Initialize theme toggle (reuse from script.js)
@@ -249,6 +363,14 @@ if (getStoredTheme()) {
 themeToggleBtn.addEventListener('click', () => {
   const isDark = document.body.classList.contains('dark');
   setTheme(!isDark);
+});
+
+// Load coins
+document.getElementById('coin-count').textContent = localStorage.getItem('rubikCoins')||'0';
+
+// Skin store placeholder
+document.getElementById('skin-btn').addEventListener('click', () => {
+  alert('皮膚商店即將上線！\n敬請期待各種貼紙主題與特效，使用金幣解鎖。');
 });
 </script>
 </body>
