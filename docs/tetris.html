@@ -13,6 +13,32 @@
 #tetris-controls button { background: #fce7f3; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.3rem; }
 #tetris-controls button:hover { background: #fbcfe8; }
 #score-display { font-size: 1.2rem; margin-top: 1rem; }
+/* Touch controls for mobile */
+#touch-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+#touch-controls button {
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: 1.5rem;
+  background: #fce7f3;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+#touch-controls button:hover {
+  background: #fbcfe8;
+}
+/* Position the rotate button to span two columns */
+#touch-rotate {
+  grid-column: 2 / 3;
+}
 </style>
 </head>
 <body>
@@ -42,6 +68,13 @@
 <button id="reset-btn">重置</button>
 </div>
 </div>
+</div>
+<!-- Touch controls for mobile -->
+<div id="touch-controls">
+  <button id="touch-left">←</button>
+  <button id="touch-rotate">↻</button>
+  <button id="touch-right">→</button>
+  <button id="touch-drop" style="grid-column: 1 / 4;">↓</button>
 </div>
 </main>
 
@@ -327,6 +360,19 @@ let isRunning = false;
 playerReset();
 updateScore();
 draw();
+
+// Touch controls for mobile
+document.addEventListener('DOMContentLoaded', () => {
+  const touchLeft = document.getElementById('touch-left');
+  const touchRight = document.getElementById('touch-right');
+  const touchRotate = document.getElementById('touch-rotate');
+  const touchDrop = document.getElementById('touch-drop');
+
+  if (touchLeft) touchLeft.addEventListener('click', () => playerMove(-1));
+  if (touchRight) touchRight.addEventListener('click', () => playerMove(1));
+  if (touchRotate) touchRotate.addEventListener('click', () => playerRotate(1));
+  if (touchDrop) touchDrop.addEventListener('click', () => playerDrop());
+});
 </script>
 </body>
 </html>
