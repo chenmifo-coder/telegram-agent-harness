@@ -107,7 +107,7 @@ header::before {
   min-width: 180px;
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius);
-  z-index: 10;
+  z-index: 2000;
   left: 0;
   top: 120%;
 }
