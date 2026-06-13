@@ -1,14 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 /* 變數定義 */
 :root {
-  --bg-color: #fdf2f8;
   --text-color: #1e293b;
   --header-bg-start: #fce7f3;
   --header-bg-end: #fbcfe8;
 }
 
 body {
-  background: var(--bg-color);
+  background: linear-gradient(135deg, #fbcfe8, #dbeafe);
   color: var(--text-color);
   font-family: system-ui, 'Segoe UI', sans-serif;
   margin: 0;
@@ -16,9 +15,7 @@ body {
 }
 
 body.dark {
-  --bg-color: #1e293b;
-  --text-color: #f5f7fa;
-  background: var(--bg-color);
+  background: linear-gradient(135deg, #1e293b, #0f172a);
   color: var(--text-color);
 }
 
