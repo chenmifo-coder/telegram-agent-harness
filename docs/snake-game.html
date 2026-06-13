@@ -89,7 +89,7 @@ main{
 </head>
 <body>
 <header>
-<h1>貪吃蛇街機版</h1>
+<h1>FMTX AI 創新公司</h1>
 <nav>
 <ul>
 <li><a href='index.html'>首頁</a></li>
@@ -260,7 +260,7 @@ function handleTouchEnd(evt) {
 function update(deltaTime) {
   // Base speed 100ms, decrease by 5ms per point, min 30ms
   const baseSpeed = 100;
-  const speed = Math.max(30, baseScore - score * 5);
+  const speed = Math.max(30, baseSpeed - score * 5);
   if (!update.lastTime) update.lastTime = 0;
   update.lastTime += deltaTime;
   if (update.lastTime < speed) return;
