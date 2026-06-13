@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔術方塊 - 遊戲專區</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Rubik's Cube specific styles */
+:root {
+  --cubie-size: 40px;
+  --gap: 2px;
+}
+body {
+  perspective: 800px;
+}
+#rubik-container {
+  width: calc(3 * (var(--cubie-size) + var(--gap)));
+  height: calc(3 * (var(--cubie-size) + var(--gap)));
+  margin: 2rem auto;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.1s;
+}
+.cubie {
+  position: absolute;
+  width: var(--cubie-size);
+  height: var(--cubie-size);
+  transform-style: preserve-3d;
+}
+.cubie-face {
+  position: absolute;
+  width: var(--cubie-size);
+  height: var(--cubie-size);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cubie-face.front  { transform: translateZ(calc(var(--cubie-size)/2)); }
+.cubie-face.back   { transform: rotateY(180deg) translateZ(calc(var(--cubie-size)/2)); }
+.cubie-face.right  { transform: rotateY( 90deg) translateZ(calc(var(--cubie-size)/2)); }
+.cubie-face.left   { transform: rotateY(-90deg) translateZ(calc(var(--cubie-size)/2)); }
+.cubie-face.top    { transform: rotateX( 90deg) translateZ(calc(var(--cubie-size)/2)); }
+.cubie-face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--cubie-size)/2)); }
+/* Face colors */
+.front  { background: #39ff14; } /* green */
+.back   { background: #0066ff; } /* blue */
+.right  { background: #ff073a; } /* red */
+.left   { background: #ff9500; } /* orange */
+.top    { background: #ffffff; } /* white */
+.bottom { background: #ffff00; } /* yellow */
+#controls {
+  text-align: center;
+  margin-top: 1rem;
+}
+#controls button {
+  margin: 0.3rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: #fce7f3;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#controls button:hover {
+  background: #fbcfe8;
+}
+</style>
+</head>
+<body>
+<header>
+<h1>魔術方塊遊戲</h1>
+<nav>
+<ul>
+<li><a href='index.html'>首頁</a></li>
+<li><a href='games.html'>遊戲專區</a></li>
+<li><a href='pricing.html'>定價方案</a></li>
+<li><a href='contact.html'>聯絡我們</a></li>
+</ul>
+</nav>
+<button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
+</header>
+
+<main>
+<div id="rubik-container"></div>
+<div id="controls">
+  <button id="scramble-btn">亂序</button>
+  <button id="reset-btn">復原</button>
+</div>
+</main>
+
+<footer>
+<p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
+<button id='contact-btn' class='contact-btn'>聯絡我們</button>
+</footer>
+<div id='contact-modal' class='modal'>
+<div class='modal-content'>
+<span class='close-btn'>&times;</span>
+<h2>聯絡我們</h2>
+<form id='contact-form'>
+<label for='cname'>姓名：</label>
+<input type='text' id='cname' name='cname' required><br><br>
+<label for='cemail'>Email：</label>
+<input type='email' id='cemail' name='cemail' required><br><br>
+<label for='cmsg'>訊息：</label>
+<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='form-response' style='margin-top:1rem; display:none;'></div>
+</div>
+</div>
+<script>
+// Rubik's Cube implementation
+const container = document.getElementById('rubik-container');
+const cubieSize = 40;
+const gap = 2;
+const stride = cubieSize + gap;
+const half = (cubieSize)/2;
+
+// Colors for each face
+const faceColors = {
+  front:  '#39ff14',
+  back:   '#0066ff',
+  right:  '#ff073a',
+  left:   '#ff9500',
+  top:    '#ffffff',
+  bottom: '#ffff00'
+};
+
+// Create cubies
+for (let x = -1; x <= 1; x++) {
+  for (let y = -1; y <= 1; y++) {
+    for (let z = -1; z <= 1; z++) {
+      const cubie = document.createElement('div');
+      cubie.className = 'cubie';
+      // position
+      cubie.style.transform = `translate3d(${x * stride}px, ${y * -stride}px, ${z * stride}px)`;
+      // faces
+      const positions = [
+        {dir: 'front',  offset: [0, 0,  half]},
+        {dir: 'back',   offset: [0, 0, -half], rotY: 180},
+        {dir: 'right',  offset: [ half, 0, 0], rotY:  90},
+        {dir: 'left',   offset: [-half, 0, 0], rotY: -90},
+        {dir: 'top',    offset: [0, -half, 0], rotX:  90},
+        {dir: 'bottom', offset: [0,  half, 0], rotX: -90}
+      ];
+      positions.forEach(p => {
+        const face = document.createElement('div');
+        face.className = 'cubie-face';
+        face.style.background = faceColors[p.dir];
+        // apply rotation
+        let t = `translate3d(${p.offset[0]}px, ${p.offset[1]}px, ${p.offset[2]}px)`;
+        if (p.rotY) t += ` rotateY(${p.rotY}deg)`;
+        if (p.rotX) t += ` rotateX(${p.rotX}deg)`;
+        face.style.transform = t;
+        cubie.appendChild(face);
+      });
+      container.appendChild(cubie);
+    }
+  }
+}
+
+// Trackball rotation
+let isDragging = false;
+let previousX = 0, previousY = 0;
+let rotateX = 0, rotateY = 0;
+
+container.addEventListener('mousedown', e => {
+  isDragging = true;
+  previousX = e.clientX;
+  previousY = e.clientY;
+});
+container.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - previousX;
+  const dy = e.clientY - previousY;
+  rotateY += dx * 0.5;
+  rotateX += dy * 0.5;
+  container.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  previousX = e.clientX;
+  previousY = e.clientY;
+});
+container.addEventListener('mouseup', () => isDragging = false);
+container.addEventListener('mouseleave', () => isDragging = false);
+
+// Touch support
+let touchStartX = 0, touchStartY = 0;
+container.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    isDragging = true;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+}, {passive: true});
+container.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  if (e.touches.length !== 1) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+  rotateY += dx * 0.5;
+  rotateX += dy * 0.5;
+  container.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, {passive: true});
+container.addEventListener('touchend', () => isDragging = false);
+container.addEventListener('touchcancel', () => isDragging = false);
+
+// Scramble: random rotations
+document.getElementById('scramble-btn').addEventListener('click', () => {
+  const rx = Math.random() * 360;
+  const ry = Math.random() * 360;
+  const rz = Math.random() * 360;
+  container.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  rotateX = rx;
+  rotateY = ry;
+});
+
+// Reset
+document.getElementById('reset-btn').addEventListener('click', () => {
+  rotateX = 0;
+  rotateY = 0;
+  container.style.transform = 'rotateX(0deg) rotateY(0deg)';
+});
+
+// Initialize theme toggle (reuse from script.js)
+const themeToggleBtn = document.getElementById('theme-toggle');
+function setTheme(isDark) {
+  if (isDark) {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+function getStoredTheme() {
+  return localStorage.getItem('theme') === 'dark';
+}
+if (getStoredTheme()) {
+  setTheme(true);
+} else {
+  setTheme(false);
+}
+themeToggleBtn.addEventListener('click', () => {
+  const isDark = document.body.classList.contains('dark');
+  setTheme(!isDark);
+});
+</script>
+</body>
+</html>
