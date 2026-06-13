@@ -5,6 +5,33 @@
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <title>FMTX全雲端 AI 創新科技股份有限公司</title>
 <link rel='stylesheet' href='style.css'>
+<style>
+/* 3D scene for homepage */
+.scene {
+  perspective: 1000px;
+  padding: 2rem;
+}
+.dashboard-container {
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+.sidebar, .main-content, .data-sidebar {
+  transform-style: preserve-3d;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  padding: 1.5rem;
+  margin: 0.5rem;
+  background: var(--bg-color);
+}
+/* subtle depth for cards */
+.data-card {
+  transform: translateZ(20px);
+  transition: transform 0.2s;
+}
+.data-card:hover {
+  transform: translateZ(40px) scale(1.02);
+}
+</style>
 </head>
 <body>
 <header>
@@ -21,6 +48,7 @@
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
+<div class="scene">
 <div class="dashboard-container">
 <aside class="sidebar">
 <h2>選單</h2>
@@ -53,6 +81,7 @@
 </div>
 </aside>
 </div>
+</div>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
@@ -75,5 +104,39 @@
 </div>
 </div>
 <script src='script.js'></script>
+<script>
+// 3D interactive effect: move dashboard based on mouse position
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.querySelector('.dashboard-container');
+  const scene = document.querySelector('.scene');
+  if (!container || !scene) return;
+
+  let rotateX = 0, rotateY = 0;
+  const maxRotate = 8; // degrees
+
+  scene.addEventListener('mousemove', e => {
+    const rect = scene.getBoundingClientRect();
+    const x = e.clientX - rect.left; // x position within the element
+    const y = e.clientY - rect.top;  // y position within the element
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Calculate offset from center, normalize to -1..1
+    const offsetX = (x - centerX) / centerX;
+    const offsetY = (y - centerY) / centerY;
+
+    // Apply rotation with smoothing
+    rotateY = offsetX * maxRotate;
+    rotateX = -offsetY * maxRotate; // invert Y for natural feel
+
+    container.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+  });
+
+  // Reset on leave
+  scene.addEventListener('mouseleave', () => {
+    container.style.transform = 'rotateX(0deg) rotateY(0deg)';
+  });
+});
+</script>
 </body>
 </html>
