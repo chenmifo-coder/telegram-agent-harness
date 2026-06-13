@@ -3,7 +3,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>FMTX AI 創新公司</title>
+<title>定價方案 - FMTX AI 創新公司</title>
 <link rel='stylesheet' href='style.css'>
 <style>
 .pricing { text-align: center; padding: 2rem 1rem; }
@@ -29,7 +29,7 @@
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
 <div class="dropdown">
-  <button class="dropbtn">選單 ▼</button>
+  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
   <div class="dropdown-content">
     <a href='index.html'>首頁</a>
     <a href='games.html'>遊戲專區</a>
@@ -39,66 +39,57 @@
 </div>
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
-<main>
-<section class='pricing'>
-<h2>我們的定價方案</h2>
-<div class='pricing-cards'>
-<div class='card'>
-<h3>基礎版</h3>
-<p class='price'>$10/月</p>
+
+<main class="main-content">
+<section class="pricing">
+<h2>我們的方案</h2>
+<div class="pricing-cards">
+<div class="card">
+<h3>基礎方案</h3>
+<div class="price">NT$990/月</div>
 <ul>
-<li>基本 AI Agent 功能</li>
-<li>每月 1000 次自動化任務</li>
-<li>標準支援</li>
+<li>每月 1000 次自動化執行</li>
+<li>基本資料分析</li>
+<li>標準雲端資源</li>
+<li>電子郵件支援</li>
 </ul>
-<button class='choose-btn'>選擇此方案</button>
+<button class="choose-btn">選擇此方案</button>
 </div>
-<div class='card'>
-<h3>專業版</h3>
-<p class='price'>$30/月</p>
+
+<div class="card">
+<h3>專業方案</h3>
+<div class="price">NT$2490/月</div>
 <ul>
-<li>進階 AI Agent 功能</li>
-<li>每月 5000 次自動化任務</li>
-<li>優先支援</li>
-<li>自定義報表</li>
+<li>每月 5000 次自動化執行</li>
+<li>進階 AI 模型</li>
+<li>彈性雲端資源</li>
+<li>優先技術支援</li>
+<li>API 存取</li>
 </ul>
-<button class='choose-btn'>選擇此方案</button>
+<button class="choose-btn">選擇此方案</button>
 </div>
-<div class='card'>
-<h3>企業版</h3>
-<p class='price'>聯絡報價</p>
+
+<div class="card">
+<h3>企業方案</h3>
+<div class="price">依需求報價</div>
 <ul>
-<li>完整功能套件</li>
-<li>無限制自動化任務</li>
-<li>專屬客戶成功經理</li>
+<li>無限制自動化執行</li>
+<li>客製化 AI 解決方案</li>
+<li>專屬雲端基礎設施</li>
+<li>全天候專職支援</li>
 <li>SLA 保證</li>
-<li>整合顧問服務</li>
 </ul>
-<button class='choose-btn'>聯絡我們獲取報價</button>
+<button class="choose-btn">聯絡我們取得報價</button>
 </div>
 </div>
 </section>
 </main>
+
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
-<div id='contact-modal' class='modal'>
-<div class='modal-content'>
-<span class='close-btn'>&times;</span>
-<h2>聯絡我們</h2>
-<form id='contact-form'>
-<label for='cname'>姓名：</label>
-<input type='text' id='cname' name='cname' required><br><br>
-<label for='cemail'>Email：</label>
-<input type='email' id='cemail' name='cemail' required><br><br>
-<label for='cmsg'>訊息：</label>
-<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
-<button type='submit'>送出</button>
-</form>
-<div id='form-response' style='margin-top:1rem; display:none;'></div>
-</div>
-</div>
-<script src='script.js'></script>
+
+<script src='script.js' defer></script>
 </body>
 </html>
