@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 /* 變數定義 */
 :root {
-  --primary: #6366f1; /* indigo */
+  --primary: #4f46e5; /* indigo */
   --secondary: #ec4899; /* pink */
   --accent: #10b981; /* emerald */
   --bg-light: #f8fafc;
