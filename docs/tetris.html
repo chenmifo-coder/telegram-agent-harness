@@ -13,6 +13,15 @@
 #tetris-controls button { background: #fce7f3; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.3rem; }
 #tetris-controls button:hover { background: #fbcfe8; }
 #score-display { font-size: 1.2rem; margin-top: 1rem; }
+/* Theme selector */
+#theme-select {
+  margin-top: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 0.9rem;
+}
 /* Touch controls for mobile */
 #touch-controls {
   display: grid;
@@ -39,6 +48,25 @@
 #touch-rotate {
   grid-column: 2 / 3;
 }
+/* Store button */
+#skin-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ec4899, #10b981);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.2s;
+}
+#skin-btn:hover { transform: translateY(-2px); }
+/* Coin display */
+#coin-display {
+  font-size: 1rem;
+  color: #f59e0b;
+  margin-top: 0.5rem;
+}
 </style>
 </head>
 <body>
@@ -62,10 +90,18 @@
 <canvas id="tetris-canvas" width="240" height="480"></canvas>
 <div>
 <div id="score-display">Score: 0</div>
+<div id="coin-display">Coins: <span id="coin-count">0</span></div>
+<select id="theme-select">
+  <option value="classic">經典</option>
+  <option value="neon">霓虹</option>
+  <option value="pastel">淡雅</option>
+  <option value="dark">暗黑</option>
+</select>
 <div id="tetris-controls">
 <button id="start-btn">開始</button>
 <button id="pause-btn">暫停</button>
 <button id="reset-btn">重置</button>
+<button id="skin-btn">皮膚商店</button>
 </div>
 </div>
 </div>
@@ -100,7 +136,7 @@
 </div>
 <script src='script.js'></script>
 <script>
-// Tetris game logic
+// Tetris game logic with coin & theme support
 const canvas = document.getElementById('tetris-canvas');
 const ctx = canvas.getContext('2d');
 const COLS = 10;
@@ -116,6 +152,53 @@ let player = {
   matrix: null,
   score: 0
 };
+let coins = parseInt(localStorage.getItem('tetrisCoins')||'0',10);
+document.getElementById('coin-count').textContent = coins;
+
+const themes = {
+  classic: [
+    null,
+    '#FF0D72',
+    '#0DC2FF',
+    '#0DFF72',
+    '#F538FF',
+    '#FF8E0D',
+    '#FFE138',
+    '#3877FF',
+  ],
+  neon: [
+    null,
+    '#ff00ff',
+    '#00ffff',
+    '#00ff00',
+    '#ff0080',
+    '#ff8000',
+    '#ffff00',
+    '#0080ff',
+  ],
+  pastel: [
+    null,
+    '#ffb3ba',
+    '#bae1ff',
+    '#baffc9',
+    '#ffdfba',
+    '#ffffba',
+    '#ffdfba',
+    '#bae1ff',
+  ],
+  dark: [
+    null,
+    '#8b0000',
+    '#00008b',
+    '#006400',
+    '#8b008b',
+    '#8b4500',
+    '#8b8b00',
+    '#000000',
+  ]
+};
+let currentTheme = 'classic';
+let colors = themes[currentTheme];
 
 function createMatrix(w, h) {
   const matrix = [];
@@ -226,6 +309,10 @@ function arenaSweep() {
     arena.unshift(row);
     ++y;
     player.score += rowCount * 10;
+    // earn coins per line cleared
+    coins += rowCount * 5;
+    localStorage.setItem('tetrisCoins', coins);
+    document.getElementById('coin-count').textContent = coins;
     rowCount *= 2;
   }
 }
@@ -282,17 +369,6 @@ function rotate(matrix, dir) {
     matrix.reverse();
   }
 }
-
-const colors = [
-  null,
-  '#FF0D72',
-  '#0DC2FF',
-  '#0DFF72',
-  '#F538FF',
-  '#FF8E0D',
-  '#FFE138',
-  '#3877FF',
-];
 
 let dropCounter = 0;
 let dropInterval = 1000;
@@ -361,6 +437,14 @@ playerReset();
 updateScore();
 draw();
 
+// Theme selector
+document.getElementById('theme-select').addEventListener('change', e => {
+  currentTheme = e.target.value;
+  colors = themes[currentTheme];
+  // redraw with new colors
+  draw();
+});
+
 // Touch controls for mobile
 document.addEventListener('DOMContentLoaded', () => {
   const touchLeft = document.getElementById('touch-left');
@@ -372,6 +456,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (touchRight) touchRight.addEventListener('click', () => playerMove(1));
   if (touchRotate) touchRotate.addEventListener('click', () => playerRotate(1));
   if (touchDrop) touchDrop.addEventListener('click', () => playerDrop());
+});
+
+// Skin store placeholder
+document.getElementById('skin-btn').addEventListener('click', () => {
+  alert('皮膚商店即將上線！\n敬請期待各種方塊主題與特效，使用金幣解鎖。');
 });
 </script>
 </body>
