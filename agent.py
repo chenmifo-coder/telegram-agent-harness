@@ -85,8 +85,17 @@ def _parse_llm_response(text: str) -> dict:
         {"path": m.group("path").strip(), "content": m.group("content").rstrip("\n")}
         for m in file_pattern.finditer(text)
     ]
+
+    # 優先用 <<<REPLY>>> 區塊；若沒有，抓回覆開頭第一段非空白文字當 fallback
     reply_match = reply_pattern.search(text)
-    reply = reply_match.group("reply").strip() if reply_match else "（AI 未提供修改說明）"
+    if reply_match:
+        reply = reply_match.group("reply").strip()
+    else:
+        # fallback：取第一個 <<< 標記之前的文字（模型可能把說明放最前面但忘了包標記）
+        pre_marker = text.split("<<<")[0].strip()
+        reply = pre_marker if pre_marker else "（AI 未提供修改說明）"
+        if reply != "（AI 未提供修改說明）":
+            logger.warning("<<<REPLY>>> 區塊缺失，使用前綴文字作為說明：%s", reply[:80])
 
     if not file_updates:
         raise ValueError(f"LLM 回覆中找不到任何 <<<FILENAME:...>>> 區塊，原始回覆：{text[:300]}")
@@ -116,24 +125,26 @@ SYSTEM_PROMPT = """
 公司網站目前位於 docs/ 資料夾，包含 HTML/CSS/JS 檔案。
 
 【輸出格式規則】
-請用以下格式輸出每一個需要新增或修改的檔案：
+請嚴格按照以下順序輸出，先輸出說明，再輸出檔案：
+
+第一步，先輸出修改說明：
+<<<REPLY>>>
+（必填）簡短說明做了哪些修改，例如：新增 contact.html 聯絡頁面，並更新 index.html 導覽列
+<<<END>>>
+
+第二步，再輸出每一個需要新增或修改的檔案：
+<<<FILENAME:contact.html>>>
+（完整的 contact.html 內容，不可省略或截斷）
+<<<END>>>
 
 <<<FILENAME:index.html>>>
-（完整的 index.html 內容，不可省略或截斷）
-<<<END>>>
-
-<<<FILENAME:style.css>>>
-（完整的 style.css 內容）
-<<<END>>>
-
-<<<REPLY>>>
-（必填）簡短說明做了哪些修改
+（完整的 index.html 內容）
 <<<END>>>
 
 【注意事項】
+- <<<REPLY>>> 必須是第一個區塊，在所有 FILENAME 之前
 - FILENAME 後面只填檔名，不要加 docs/ 等目錄前綴
 - 每個檔案區塊之間可以有空行
-- <<<REPLY>>>...<<<END>>> 為必填，每次都必須輸出
 - <<<END>>> 之後不要有任何多餘說明
 - 保持設計現代、響應式、美觀
 """.strip()
