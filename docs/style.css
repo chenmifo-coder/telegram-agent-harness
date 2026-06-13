@@ -54,7 +54,7 @@ header {
   padding: 3rem 1rem;
   text-align: center;
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* 確保下拉選單不被裁切 */
 }
 header::before {
   content: "";
@@ -107,7 +107,7 @@ header::before {
   min-width: 180px;
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius);
-  z-index: 2000;
+  z-index: 9999; /* 提升層級確保不被其他元素遮住 */
   left: 0;
   top: 120%;
 }
