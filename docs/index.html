@@ -13,7 +13,7 @@
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
 <div class="dropdown">
-  <button class="dropbtn">選單 ▼</button>
+  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
   <div class="dropdown-content">
     <a href='index.html' class='active'>首頁</a>
     <a href='games.html'>遊戲專區</a>
@@ -61,17 +61,19 @@
   </div>
 </section>
 
-<!-- 關於我們 -->
-<section class="about">
-  <h2>關於 FMTX AI</h2>
-  <p>FMTX AI 創新公司致力於將最前沿的人工智慧技術與雲端基礎設施結合，提供客戶簡單易用、高效能的解決方案。我們的團隊由 AI 研究員、雲端架構師與業界專家組成，持續推出創新產品，協助各產業實現數位轉型。</p>
-</section>
-
-<!-- CTA 區塊 -->
-<section class="cta-section">
-  <h2>準備好開始了嗎？</h2>
-  <p>立即註冊免費試用，體驗 AI 自動化的力量。</p>
-  <a href='contact.html' class="cta-button">聯絡我們</a>
+<!-- 客戶案例 -->
+<section class="testimonials">
+  <h2>客戶見證</h2>
+  <div class="testimonial-grid">
+    <blockquote>
+      <p>「自從使用 FMTX AI 的服務後，我們的運營成本下降了 30%。」</p>
+      <footer>— 某科技公司 CTO</footer>
+    </blockquote>
+    <blockquote>
+      <p>「AI 自動化讓我們的團隊能專注於創新工作。」</p>
+      <footer>— 某製造業經理</footer>
+    </blockquote>
+  </div>
 </section>
 </main>
 
@@ -79,22 +81,7 @@
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
-<div id='contact-modal' class='modal'>
-<div class='modal-content'>
-<span class='close-btn'>&times;</span>
-<h2>聯絡我們</h2>
-<form id='contact-form'>
-<label for='cname'>姓名：</label>
-<input type='text' id='cname' name='cname' required><br><br>
-<label for='cemail'>Email：</label>
-<input type='email' id='cemail' name='cemail' required><br><br>
-<label for='cmsg'>訊息：</label>
-<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
-<button type='submit'>送出</button>
-</form>
-<div id='form-response' style='margin-top:1rem; display:none;'></div>
-</div>
-</div>
-<script src='script.js'></script>
+
+<script src='script.js' defer></script>
 </body>
 </html>
