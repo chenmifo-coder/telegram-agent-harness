@@ -287,7 +287,8 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
     reply = updates.get("reply_message") or "（AI 未提供修改說明）"
     if skipped:
         skipped_str = ", ".join(skipped)
-        reply += "\n⚠️ 以下核心檔案受保護，未執行刪除：" + skipped_str
+        # LLM 的 reply 可能寫「已刪除 xxx」但實際被擋下，直接覆蓋避免誤導使用者
+        reply = "⚠️ 以下核心檔案受保護，拒絕刪除：" + skipped_str + "\n其餘操作已正常執行。"
     return True, reply
 
 
