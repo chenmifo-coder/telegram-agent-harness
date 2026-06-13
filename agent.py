@@ -236,6 +236,14 @@ def process_user_request(user_message: str, current_files_content: str) -> dict:
     raise last_error
 
 
+# 禁止刪除的核心檔案，無論 LLM 怎麼要求都不會執行
+PROTECTED_FILES = frozenset({
+    "index.html",
+    "style.css",
+    ".nojekyll",
+})
+
+
 def apply_updates(updates: dict) -> tuple[bool, str]:
     """將 LLM 產生的檔案更新與刪除寫回 GitHub，回傳 (成功, 訊息)。"""
     file_updates = updates.get("file_updates", [])
@@ -261,16 +269,25 @@ def apply_updates(updates: dict) -> tuple[bool, str]:
         if not success:
             return False, f"更新 {path} 失敗，請檢查 GitHub 權限或 API 限制。"
 
-    # 刪除
+    # 刪除（受保護的檔案直接跳過）
+    skipped = []
     for raw_path in file_deletes:
         path = _strip_docs_prefix(raw_path.strip())
+
+        if path in PROTECTED_FILES:
+            logger.warning("拒絕刪除受保護的核心檔案：%s", path)
+            skipped.append(path)
+            continue
+
         logger.info("刪除檔案：%s", path)
         success = delete_file(path, f"AI 自動刪除: {path}")
         if not success:
-            # 刪除失敗不中斷流程，只記錄警告
             logger.warning("刪除 %s 失敗（可能已不存在），繼續執行", path)
 
     reply = updates.get("reply_message") or "（AI 未提供修改說明）"
+    if skipped:
+        skipped_str = ", ".join(skipped)
+        reply += "\n⚠️ 以下核心檔案受保護，未執行刪除：" + skipped_str
     return True, reply
 
 
