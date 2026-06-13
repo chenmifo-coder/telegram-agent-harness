@@ -6,13 +6,15 @@
 <title>FMTX AI 創新公司</title>
 <link rel="stylesheet" href="style.css">
 <style>
-/* Arcade specific overrides */
+/* Snake game enhancements */
 :root {
   --arcade-bg: #0d0d0d;
   --arcade-snake: #39ff14;
   --arcade-food: #ff073a;
   --arcade-grid: rgba(255,255,255,0.05);
   --arcade-text: #ffff00;
+  --card-bg: rgba(255,255,255,0.9);
+  --card-radius: 16px;
 }
 body.arcade {
   background: var(--arcade-bg);
@@ -23,13 +25,14 @@ body.arcade {
   background: #000;
   border: 4px solid var(--arcade-snake);
   box-shadow: 0 0 15px var(--arcade-snake);
+  border-radius: 8px;
 }
 #score-display, #high-score-display {
   font-family: 'Press Start 2P', monospace;
   letter-spacing: 1px;
   text-shadow: 0 0 5px var(--arcade-text);
 }
-home-btn, #restart-btn {
+#restart-btn, #skin-btn {
   font-family: 'Press Start 2P', monospace;
 }
 /* Ensure full page height and center main content */
@@ -57,6 +60,11 @@ main{
   align-items: center;
   justify-content: center;
   text-align: center;
+  gap: 1rem;
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  padding: 2rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
 }
 /* Touch controls diamond shape */
 .touch-diamond {
@@ -85,6 +93,26 @@ main{
 .touch-diamond #btn-down { grid-area: down; }
 .touch-diamond #btn-left { grid-area: left; }
 .touch-diamond #btn-right { grid-area: right; }
+/* Store button */
+#skin-btn {
+  margin-top: 0.8rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ec4899, #10b981);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.2s;
+}
+#skin-btn:hover { transform: translateY(-2px); }
+/* Coin display */
+#coin-display {
+  font-family: 'Press Start 2P', monospace;
+  color: #f59e0b;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+}
 </style>
 </head>
 <body>
@@ -93,7 +121,7 @@ main{
 <nav>
 <ul>
 <li><a href='index.html'>首頁</a></li>
-<li><a href='snake.html' class='active'>貪吃蛇小遊戲</a></li>
+<li><a href='games.html' class='active'>遊戲專區</a></li>
 <li><a href='pricing.html'>定價方案</a></li>
 <li><a href='contact.html'>聯絡我們</a></li>
 </ul>
@@ -104,7 +132,9 @@ main{
 <canvas id="snake-canvas"></canvas>
 <div id="score-display">Score: 0</div>
 <div id="high-score-display">High Score: 0</div>
+<div id="coin-display">Coins: <span id="coin-count">0</span></div>
 <button id="restart-btn">開始遊戲</button>
+<button id="skin-btn">皮膚商店</button>
 <p>使用方向鍵或螢幕上的方向按鈕控制蛇的移動，吃到紅色方塊得分，避免撞到牆壁或自己。</p>
 <div class="touch-diamond">
   <button id="btn-up" aria-label="上">▲</button>
@@ -119,6 +149,299 @@ main{
 </div>
 </main>
 <footer><p> 2026 全雲端公司 | 由 AI Agent 自動維護</p></footer>
-<script src="snake.js"></script>
+<script>
+// ==== Snake Game Logic (embedded from snake.js) ====
+const canvas = document.getElementById('snake-canvas');
+const ctx = canvas.getContext('2d');
+const gridSize = 20;
+let cellSize;
+let snake = [];
+let food = {};
+let direction = 'right';
+let nextDirection = direction;
+let score = 0;
+let highScore = 0;
+let coins = parseInt(localStorage.getItem('snakeCoins')||'0',10);
+let lastRender = 0;
+const scoreDisplay = document.getElementById('score-display');
+const highScoreDisplay = document.getElementById('high-score-display');
+const coinDisplay = document.getElementById('coin-count');
+const restartBtn = document.getElementById('restart-btn');
+const skinBtn = document.getElementById('skin-btn');
+let gameRunning = false;
+let touchStartX = 0, touchStartY = 0;
+const leaderboardList = document.getElementById('leaderboard-list');
+
+// Load high score & coins
+if (localStorage.getItem('snakeHighScore')) {
+  highScore = parseInt(localStorage.getItem('snakeHighScore'), 10);
+  highScoreDisplay.textContent = `High Score: ${highScore}`;
+}
+coinDisplay.textContent = coins;
+
+// Leaderboard functions
+function loadLeaderboard() {
+  const data = localStorage.getItem('snakeLeaderboard');
+  return data ? JSON.parse(data) : [];
+}
+function saveLeaderboard(arr) {
+  localStorage.setItem('snakeLeaderboard', JSON.stringify(arr));
+}
+function renderLeaderboard() {
+  const scores = loadLeaderboard();
+  leaderboardList.innerHTML = '';
+  scores.forEach((s, idx) => {
+    const li = document.createElement('li');
+    li.textContent = `${idx + 1}. ${s}`;
+    leaderboardList.appendChild(li);
+  });
+}
+
+// Initial render
+renderLeaderboard();
+
+function resizeCanvas() {
+  const containerSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8, 400);
+  cellSize = Math.floor(containerSize / gridSize);
+  if (cellSize < 1) cellSize = 1;
+  canvas.width = cellSize * gridSize;
+  canvas.height = cellSize * gridSize;
+  if (gameRunning) {
+    draw();
+  }
+}
+
+function initGame() {
+  snake = [
+    { x: Math.floor(gridSize/2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+    { x: (Math.floor(gridSize/2)-1) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+    { x: (Math.floor(gridSize/2)-2) * cellSize, y: Math.floor(gridSize/2) * cellSize },
+  ];
+  direction = 'right';
+  nextDirection = direction;
+  score = 0;
+  scoreDisplay.textContent = `Score: ${score}`;
+  placeFood();
+  gameRunning = true;
+  window.cancelAnimationFrame(animationFrameId);
+  lastRender = 0;
+  requestAnimationFrame(gameLoop);
+}
+
+function placeFood() {
+  food = {
+    x: Math.floor(Math.random() * gridSize) * cellSize,
+    y: Math.floor(Math.random() * gridSize) * cellSize
+  };
+  for (let segment of snake) {
+    if (segment.x === food.x && segment.y === food.y) {
+      placeFood();
+      return;
+    }
+  }
+}
+
+function handleKey(e) {
+  switch(e.key) {
+    case 'ArrowUp': if (direction !== 'down') nextDirection = 'up'; break;
+    case 'ArrowDown': if (direction !== 'up') nextDirection = 'down'; break;
+    case 'ArrowLeft': if (direction !== 'right') nextDirection = 'left'; break;
+    case 'ArrowRight': if (direction !== 'left') nextDirection = 'right'; break;
+    // Nintendo style keys: W/A/S/D
+    case 'KeyW': if (direction !== 'down') nextDirection = 'up'; break;
+    case 'KeyS': if (direction !== 'up') nextDirection = 'down'; break;
+    case 'KeyA': if (direction !== 'right') nextDirection = 'left'; break;
+    case 'KeyD': if (direction !== 'left') nextDirection = 'right'; break;
+  }
+}
+
+function setDirection(newDir) {
+  const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  if (newDir !== opposites[direction]) {
+    direction = newDir;
+  }
+}
+
+function handleTouchStart(evt) {
+  if (evt.touches.length === 1) {
+    touchStartX = evt.touches[0].clientX;
+    touchStartY = evt.touches[0].clientY;
+  }
+}
+
+function handleTouchEnd(evt) {
+  if (!touchStartX || !touchStartY) return;
+  const touchEndX = evt.changedTouches[0].clientX;
+  const touchEndY = evt.changedTouches[0].clientY;
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+  const absX = Math.abs(diffX);
+  const absY = Math.abs(diffY);
+  const threshold = 30;
+  if (absX > threshold || absY > threshold) {
+    if (absX > absY) {
+      if (diffX > 0) setDirection('right');
+      else setDirection('left');
+    } else {
+      if (diffY > 0) setDirection('down');
+      else setDirection('up');
+    }
+  }
+  touchStartX = 0;
+  touchStartY = 0;
+}
+
+function update(deltaTime) {
+  // Base speed 100ms, decrease by 5ms per point, min 30ms
+  const baseSpeed = 100;
+  const speed = Math.max(30, baseSpeed - score * 5);
+  if (!update.lastTime) update.lastTime = 0;
+  update.lastTime += deltaTime;
+  if (update.lastTime < speed) return;
+  update.lastTime = 0;
+
+  const head = { x: snake[0].x, y: snake[0].y };
+  switch(direction) {
+    case 'right': head.x += cellSize; break;
+    case 'left': head.x -= cellSize; break;
+    case 'up': head.y -= cellSize; break;
+    case 'down': head.y += cellSize; break;
+  }
+
+  // check food
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('snakeHighScore', highScore);
+      highScoreDisplay.textContent = `High Score: ${highScore}`;
+    }
+    scoreDisplay.textContent = `Score: ${score}`;
+    // earn coins
+    coins += Math.floor(score/5);
+    localStorage.setItem('snakeCoins', coins);
+    coinDisplay.textContent = coins;
+    placeFood();
+    snake.unshift(head);
+  } else {
+    snake.unshift(head);
+    snake.pop();
+  }
+
+  // wall collision
+  if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+    gameOver();
+    return;
+  }
+  // self collision
+  for (let i = 1; i < snake.length; i++) {
+    if (snake[i].x === head.x && snake[i].y === head.y) {
+      gameOver();
+      return;
+    }
+  }
+}
+update.lastTime = 0;
+
+function gameOver() {
+  gameRunning = false;
+  restartBtn.textContent = '開始遊戲';
+  alert('Game Over! Your score: ' + score + '\nCoins earned: ' + Math.floor(score/5));
+
+  // Update leaderboard
+  const scores = loadLeaderboard();
+  scores.push(score);
+  scores.sort((a, b) => b - a);
+  if (scores.length > 10) scores.length = 10;
+  saveLeaderboard(scores);
+  renderLeaderboard();
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // optional grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= gridSize; i++) {
+    const pos = i * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(pos, 0);
+    ctx.lineTo(pos, canvas.height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, pos);
+    ctx.lineTo(canvas.width, pos);
+    ctx.stroke();
+  }
+  // draw snake
+  ctx.fillStyle = '#39ff14';
+  snake.forEach((segment, index) => {
+    ctx.fillRect(segment.x, segment.y, cellSize, cellSize);
+    // add glow effect for head
+    if (index === 0) {
+      ctx.shadowColor = '#39ff14';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(segment.x, segment.y, cellSize, cellSize);
+      ctx.shadowBlur = 0;
+    }
+  });
+  // draw food
+  ctx.fillStyle = '#ff073a';
+  ctx.fillRect(food.x, food.y, cellSize, cellSize);
+  ctx.shadowColor = '#ff073a';
+  ctx.shadowBlur = 8;
+  ctx.fillRect(food.x, food.y, cellSize, cellSize);
+  ctx.shadowBlur = 0;
+}
+
+let animationFrameId = null;
+function gameLoop(timestamp) {
+  if (!lastRender) lastRender = timestamp;
+  const deltaTime = timestamp - lastRender;
+  lastRender = timestamp;
+  update(deltaTime);
+  draw();
+  if (gameRunning) {
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+}
+
+// Event listeners
+window.addEventListener('load', () => {
+  resizeCanvas();
+  // show start screen
+  restartBtn.textContent = '開始遊戲';
+});
+window.addEventListener('resize', resizeCanvas);
+document.addEventListener('keydown', handleKey);
+document.addEventListener('touchstart', handleTouchStart, { passive: true });
+document.addEventListener('touchend', handleTouchEnd, { passive: true });
+restartBtn.addEventListener('click', () => {
+  if (!gameRunning) {
+    initGame();
+  } else {
+    // if running, reset
+    initGame();
+  }
+});
+
+// Skin store placeholder
+skinBtn.addEventListener('click', () => {
+  alert('皮膚商店即將上線！\n敬請期待各種炫彩蛇身與特效，使用金幣解鎖。');
+});
+
+// Touch controls
+document.addEventListener('DOMContentLoaded', () => {
+  const btnUp = document.getElementById('btn-up');
+  const btnDown = document.getElementById('btn-down');
+  const btnLeft = document.getElementById('btn-left');
+  const btnRight = document.getElementById('btn-right');
+  if (btnUp) btnUp.addEventListener('click', () => setDirection('up'));
+  if (btnDown) btnDown.addEventListener('click', () => setDirection('down'));
+  if (btnLeft) btnLeft.addEventListener('click', () => setDirection('left'));
+  if (btnRight) btnRight.addEventListener('click', () => setDirection('right'));
+});
+</script>
 </body>
 </html>
