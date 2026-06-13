@@ -79,7 +79,7 @@ def _parse_llm_response(text: str) -> dict:
         re.DOTALL
     )
     reply_pattern = re.compile(
-        r'<<<REPLY>{2,3}\s*\n(?P<reply>.*?)<<<END>{2,3}',
+        r'<<<REPLY>{2,3}\s*\n?(?P<reply>.*?)<<<END>{2,3}',
         re.DOTALL
     )
 
