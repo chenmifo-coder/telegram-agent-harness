@@ -14,12 +14,34 @@ const highScoreDisplay = document.getElementById('high-score-display');
 const restartBtn = document.getElementById('restart-btn');
 let gameRunning = false;
 let touchStartX = 0, touchStartY = 0;
+const leaderboardList = document.getElementById('leaderboard-list');
 
 // Load high score
 if (localStorage.getItem('snakeHighScore')) {
   highScore = parseInt(localStorage.getItem('snakeHighScore'), 10);
   highScoreDisplay.textContent = `High Score: ${highScore}`;
 }
+
+// Leaderboard functions
+function loadLeaderboard() {
+  const data = localStorage.getItem('snakeLeaderboard');
+  return data ? JSON.parse(data) : [];
+}
+function saveLeaderboard(arr) {
+  localStorage.setItem('snakeLeaderboard', JSON.stringify(arr));
+}
+function renderLeaderboard() {
+  const scores = loadLeaderboard();
+  leaderboardList.innerHTML = '';
+  scores.forEach((s, idx) => {
+    const li = document.createElement('li');
+    li.textContent = `${idx + 1}. ${s}`;
+    leaderboardList.appendChild(li);
+  });
+}
+
+// Initial render
+renderLeaderboard();
 
 function resizeCanvas() {
   const containerSize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8, 400);
@@ -116,7 +138,7 @@ function handleTouchEnd(evt) {
 function update(deltaTime) {
   // Base speed 100ms, decrease by 5ms per point, min 30ms
   const baseSpeed = 100;
-  const speed = Math.max(30, baseSpeed - score * 5);
+  const speed = Math.max(30, baseScore - score * 5);
   if (!update.lastTime) update.lastTime = 0;
   update.lastTime += deltaTime;
   if (update.lastTime < speed) return;
@@ -165,6 +187,14 @@ function gameOver() {
   gameRunning = false;
   restartBtn.textContent = '開始遊戲';
   alert('Game Over! Your score: ' + score);
+
+  // Update leaderboard
+  const scores = loadLeaderboard();
+  scores.push(score);
+  scores.sort((a, b) => b - a);
+  if (scores.length > 10) scores.length = 10;
+  saveLeaderboard(scores);
+  renderLeaderboard();
 }
 
 function draw() {
@@ -247,3 +277,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnLeft) btnLeft.addEventListener('click', () => setDirection('left'));
   if (btnRight) btnRight.addEventListener('click', () => setDirection('right');
 });
+</script>
