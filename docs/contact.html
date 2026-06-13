@@ -3,7 +3,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>FMTX AI 創新公司</title>
+<title>聯絡我們 - FMTX AI 創新公司</title>
 <link rel='stylesheet' href='style.css'>
 </head>
 <body>
@@ -13,7 +13,7 @@
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
 <div class="dropdown">
-  <button class="dropbtn">選單 ▼</button>
+  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
   <div class="dropdown-content">
     <a href='index.html'>首頁</a>
     <a href='games.html'>遊戲專區</a>
@@ -42,22 +42,24 @@
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
+
 <div id='contact-modal' class='modal'>
 <div class='modal-content'>
-<span class='close-btn'>&times;</span>
+<span class='close-btn' aria-label='關閉視窗'>&times;</span>
 <h2>聯絡我們</h2>
-<form id='contact-form'>
-<label for='cname'>姓名：</label>
-<input type='text' id='cname' name='cname' required><br><br>
-<label for='cemail'>Email：</label>
-<input type='email' id='cemail' name='cemail' required><br><br>
-<label for='cmsg'>訊息：</label>
-<textarea id='cmsg' name='cmsg' rows='4' required></textarea><br><br>
+<form id='modal-contact-form'>
+<label for='mcname'>姓名：</label>
+<input type='text' id='mcname' name='mcname' required><br><br>
+<label for='mcemail'>Email：</label>
+<input type='email' id='mcemail' name='mcemail' required><br><br>
+<label for='mcmsg'>訊息：</label>
+<textarea id='mcmsg' name='mcmsg' rows='4' required></textarea><br><br>
 <button type='submit'>送出</button>
 </form>
-<div id='form-response' style='margin-top:1rem; display:none;'></div>
+<div id='modal-response' style='margin-top:1rem; display:none;'></div>
 </div>
 </div>
-<script src='script.js'></script>
+
+<script src='script.js' defer></script>
 </body>
 </html>
