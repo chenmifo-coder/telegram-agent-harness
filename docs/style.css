@@ -49,106 +49,72 @@ body.dark {
 
 /* 頁首 */
 header {
-  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
-  padding: 1rem;
+  background: linear-gradient(135deg, #4f46e5, #ec4899);
+  padding: 1.5rem;
   text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  position: relative;
 }
 header .title h1 {
   margin: 0;
   font-size: 1.8rem;
-  background: linear-gradient(to right, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 header .title p {
   margin: 0.3rem 0 0;
   font-size: 1rem;
-  color: #555;
+  opacity: 0.9;
 }
-header .theme-toggle {
-  background: none;
+.theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  margin-top: 0.5rem;
 }
 
-/* 新增佈局 */
+/* 主體佈局 */
 .layout {
   display: flex;
-  min-height: calc(100vh - 4rem); /* 減去 header 高度 */
+  flex: 1;
 }
 .sidebar {
-  width: 200px;
-  background: rgba(255,255,255,0.85);
+  width: 260px;
+  background: var(--card-bg);
   padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 .sidebar h2 {
   margin-top: 0;
-  font-size: 1.25rem;
-  color: var(--primary);
 }
 .nav-link {
   display: block;
-  padding: 0.5rem 1rem;
-  background: var(--primary);
-  color: #fff;
+  padding: 0.75rem 0;
+  color: var(--text-light);
   text-decoration: none;
-  border-radius: var(--radius);
   font-weight: 500;
-  transition: var(--transition);
 }
 .nav-link:hover,
 .nav-link.active {
-  background: var(--secondary);
+  color: var(--primary);
 }
 .main-content {
   flex: 1;
   padding: 2rem;
-  overflow-y: auto;
-}
-
-/* 原有樣式保留（若無衝突） */
-.btn-link {
-  display: inline-block;
-  margin: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--primary);
-  color: #fff;
-  text-decoration: none;
-  border-radius: var(--radius);
-  font-weight: 600;
-  transition: var(--transition);
-}
-.btn-link:hover {
-  background: var(--secondary);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-}
-.page-links h2 {
-  margin-top: 0;
-  color: var(--text-light);
 }
 
 /* 英雄區 */
 .hero {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
   text-align: center;
-  padding: 3rem 1rem;
-  background: rgba(255,255,255,0.7);
 }
 .hero-content h2 {
+  margin-top: 0;
   font-size: 2rem;
-  margin-bottom: 1rem;
 }
 .hero-content p {
-  font-size: 1.1rem;
-  margin-bottom 1.5rem;
+  margin: 1rem 0;
 }
 .cta-button {
   display: inline-block;
@@ -167,184 +133,49 @@ header .theme-toggle {
 
 /* 功能卡片 */
 .features {
-  padding: 2rem 1rem;
+  padding: 2rem;
 }
 .features h2 {
   text-align: center;
   margin-bottom: 2rem;
 }
 .card-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 1.5rem;
-  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 .card {
-  background: #fff;
+  background: var(--card-bg);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 1.5rem;
-  width: 260px;
-  transition: transform 0.2s;
+  text-align: center;
+  transition: var(--transition);
 }
 .card:hover {
   transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
 }
 .card h3 {
   margin-top: 0;
   color: var(--primary);
 }
 
-/* 客戶見證 */
-.testimonials {
-  padding: 2rem 1rem;
-  background: rgba(255,255,255,0.6);
-}
-.testimonials h2 {
+/* 頁尾 */
+footer {
   text-align: center;
-  margin-bottom: 1.5rem;
-}
-.testimonial-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  justify-content: center;
-}
-.testimonial {
-  background: #fff;
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1rem;
-  width: 280px;
-}
-.testimonial p {
-  margin: 0 0 0.5rem;
-  font-style: italic;
-}
-
-/* 遊戲頁面特定樣式（保留） */
-:root {
-  --game-bg: #f8fafc;
-  --game-card-bg: #ffffff;
-  --game-primary: #6366f1;
-  --game-accent: #10b981;
-  --game-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  --game-shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
-  --game-radius: 12px;
-  --game-transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-}
-body { background: var(--game-bg); }
-.section-title {
-  text-align: center;
-  margin: 2.5rem 0 1.5rem;
-  font-size: 1.8rem;
-  color: var(--game-primary);
-  position: relative;
-}
-.section-title::after {
-  content: "";
-  display: block;
-  width: 60px;
-  height: 4px;
-  background: linear-gradient(90deg, #ec4899, #10b981);
-  margin: 0.5rem auto 0;
-  border-radius: 2px;
-}
-.game-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2.5rem;
-  justify-content: center;
-}
-.game-card {
-  background: var(--game-card-bg);
-  border-radius: var(--game-radius);
-  box-shadow: var(--game-shadow);
-  width: 280px;
-  padding: 1.8rem;
-  text-align: center;
-  transition: var(--game-transition);
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-}
-.game-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: var(--game-shadow-hover);
-}
-.game-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(0,0,0,0),
-      rgba(0,0,0,0.1)
-    );
-  opacity: 0;
-  transition: var(--transition);
-}
-.game-card:hover::after {
-  opacity: 1;
-}
-.game-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 1rem;
-}
-.game-title {
-  font-size: 1.25rem;
-  margin: 0.5rem 0;
-  font-weight: 600;
-}
-.game-desc {
+  padding: 1.5rem;
   font-size: 0.9rem;
-  color: #555;
+  opacity: 0.8;
 }
-
-/* 定價頁面樣式（保留） */
-.pricing { text-align: center; padding: 2rem 1rem; }
-.pricing h2 { margin-bottom: 2rem; }
-.pricing-cards { display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; }
-.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 260px; padding: 1.5rem; text-align: left; transition: transform 0.2s; }
-.card:hover { transform: translateY(-5px); }
-.card h3 { margin-top: 0; color: #831843; }
-.price { font-size: 1.8rem; font-weight: bold; margin: 1rem 0; color: #1e293b; }
-.card ul { list-style: none; padding: 0; margin: 1rem 0; }
-.card ul li { margin-bottom: 0.5rem; }
-.choose-btn { background: #fce7f3; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-.choose-btn:hover { background: #fbcfe8; }
-@media (max-width: 480px) {
-.card { width: 100%; max-width: 300px; }
-}
-
-/* 聯絡表單樣式（保留） */
-#contact-form label {
-  display: block;
-  margin-top: 0.5rem;
-}
-#contact-form input,
-#contact-form textarea {
-  width: 100%;
-  padding: 0.5rem;
-  margin-top: 0.25rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-#contact-form button {
+.contact-btn {
+  display: inline-block;
   margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--primary);
+  padding: 0.5rem 1rem;
+  background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 4px;
   cursor: pointer;
-}
-#contact-form button:hover {
-  background: var(--secondary);
 }
 
 /* 模態視窗 */
@@ -356,44 +187,106 @@ body { background: var(--game-bg); }
   top: 0;
   width: 100%;
   height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.5);
 }
 .modal-content {
-  background-color: #fff;
+  background: var(--card-bg);
   margin: 10% auto;
   padding: 2rem;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 500px;
+  width: 90%;
+  max-width: 400px;
   border-radius: var(--radius);
   position: relative;
 }
 .close-btn {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.close-btn:hover,
-.close-btn:focus {
-  color: #000;
-  text-decoration: none;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
   cursor: pointer;
 }
 
-/* 響應式調整 */
+/* 響應式優化 */
 @media (max-width: 768px) {
   .layout {
     flex-direction: column;
   }
   .sidebar {
     width: 100%;
-    height: auto;
+    order: -1;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 1rem;
   }
   .main-content {
     padding: 1rem;
   }
+  h1, h2 {
+    font-size: 1.5rem;
+  }
+  .hero {
+    padding: 2rem 1rem;
+  }
+  .hero-content h2 {
+    font-size: 1.75rem;
+  }
+  .card-grid,
+  .game-list,
+  .pricing-cards {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .nav-link {
+    text-align: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #eee;
+  }
+  .nav-link:last-child {
+    border-bottom: none;
+  }
+  button,
+  .btn-link,
+  .cta-button,
+  .choose-btn,
+  input,
+  textarea,
+  select {
+    min-height: 44px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+  .sidebar h2 {
+    text-align: center;
+  }
 }
-</style>
+
+/* 表單樣式 */
+form label {
+  display: block;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+form input,
+form textarea,
+form select {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+form button[type="submit"] {
+  margin-top: 1rem;
+}
+
+/* 動畫漸移背景（深色） */
+@keyframes gradientShiftDark {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+</style> 
