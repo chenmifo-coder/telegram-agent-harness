@@ -12,18 +12,18 @@
 <h1>FMTX AI 創新公司</h1>
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
-<div class="dropdown">
-  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
-  <div class="dropdown-content">
-    <a href='index.html'>首頁</a>
-    <a href='games.html'>遊戲專區</a>
-    <a href='pricing.html'>定價方案</a>
-    <a href='contact.html'>聯絡我們</a>
-    <a href='power.html' class='active'>電源工程師知識</a>
-  </div>
-</div>
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
+
+<div class="layout">
+<aside class="sidebar">
+<h2>選單</h2>
+<a href='index.html' class='nav-link'>首頁</a>
+<a href='games.html' class='nav-link'>遊戲專區</a>
+<a href='pricing.html' class='nav-link'>定價方案</a>
+<a href='contact.html' class='nav-link'>聯絡我們</a>
+<a href='power.html' class='nav-link active'>電源工程師知識</a>
+</aside>
 
 <main class="main-content">
 <section>
@@ -55,12 +55,28 @@
 </ul>
 </section>
 </main>
+</div>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
 
-<script src='script.js' defer></script>
+<div id='contact-modal' class='modal'>
+<div class='modal-content'>
+<span class='close-btn' aria-label='關閉視窗'>&times;</span>
+<h2>聯絡我們</h2>
+<form id='modal-contact-form'>
+<label for='mname'>姓名：</label>
+<input type='text' id='mname' name='mname' required><br><br>
+<label for='memail'>Email：</label>
+<input type='email' id='memail' name='memail' required><br><br>
+<label for='mmsg'>訊息：</label>
+<textarea id='mmsg' name='mmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='modal-response' style='margin-top:1rem; display:none;'></div>
+</div>
+</div>
 </body>
 </html>
