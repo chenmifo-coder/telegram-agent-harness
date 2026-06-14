@@ -61,14 +61,32 @@ body { background: var(--game-bg); }
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0,0,0,0),
+      rgba(0,0,0,0.1)
+    );
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: var(--transition);
 }
-.game-card:hover::after { opacity: 1; }
-.game-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-.game-title { font-size: 1.25rem; margin: 0.5rem 0; color: var(--game-primary); }
-.game-desc { font-size: 0.9rem; color: #555; }
+.game-card:hover::after {
+  opacity: 1;
+}
+.game-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+}
+.game-title {
+  font-size: 1.25rem;
+  margin: 0.5rem 0;
+  font-weight: 600;
+}
+.game-desc {
+  font-size: 0.9rem;
+  color: #555;
+}
 </style>
 </head>
 <body>
@@ -77,51 +95,75 @@ body { background: var(--game-bg); }
 <h1>FMTX AI 創新公司</h1>
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
-<div class="dropdown">
-  <button class="dropbtn" aria-label="開啟選單">選單 ▼</button>
-  <div class="dropdown-content">
-    <a href='index.html'>首頁</a>
-    <a href='games.html' class='active'>遊戲專區</a>
-    <a href='pricing.html'>定價方案</a>
-    <a href='contact.html'>聯絡我們</a>
-    <a href='power.html'>電源工程師知識</a>
-  </div>
-</div>
 <button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
+<div class="layout">
+<aside class="sidebar">
+<h2>選單</h2>
+<a href='index.html' class='nav-link'>首頁</a>
+<a href='games.html' class='nav-link active'>遊戲專區</a>
+<a href='pricing.html' class='nav-link'>定價方案</a>
+<a href='contact.html' class='nav-link'>聯絡我們</a>
+<a href='power.html' class='nav-link'>電源工程師知識</a>
+</aside>
+
 <main class="main-content">
 <section>
-<h2 class="section-title">精選遊戲</h2>
-<div class="game-list">
-<a href="#" class="game-card">
-<div class="game-icon">🎮</div>
-<h3 class="game-title">益智解謎</h3>
-<p class="game-desc">挑戰邏輯與空間思維的經典解謎遊戲。</p>
-</a>
-<a href="#" class="game-card">
-<div class="game-icon">🚀</div>
-<h3 class="game-title">太空競速</h3>
-<p class="game-desc">高速飛行躲避障礙，考驗反應速度。</p>
-</a>
-<a href="#" class="game-card">
-<div class="game-icon">🧩</div>
-<h3 class="game-title">方塊消除</h3>
-<p class="game-desc">匹配相同顏色方塊，消除得分。</p>
-</a>
-<a href="#" class="game-card">
-<div class="game-icon">🏎️</div>
-<h3 class="game-title">賽車競速</h3>
-<p class="game-desc">在各種賽道上爭取第一名。</p>
-</a>
-</div>
+  <h2 class="section-title">熱門遊戲</h2>
+  <div class="game-list">
+    <a href="#" class="game-card">
+      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
+      <div class="game-title">星際爭霸：重製版</div>
+      <p class="game-desc">經典即時戰略遊戲，全新 4K 畫質與重新平衡的玩法。</p>
+    </a>
+    <a href="#" class="game-card">
+      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
+      <div class="game-title">魔法王座</div>
+      <p class="game-desc">大型多人線上角色扮演遊戲，開放世界與豐富劇情。</p>
+    </a>
+    <a href="#" class="game-card">
+      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
+      <div class="game-title">極速飛車：雲端版</div>
+      <p class="game-desc">利用雲端運算的競速遊戲，實時光線追蹤與物理模擬。</p>
+    </a>
+    <a href="#" class="game-card">
+      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
+      <div class="game-title">戰術小隊</div>
+      <p class="game-desc">團隊合作射擊遊戲，支援跨平台匹配與即時語音。</p>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2 class="section-title">開發者資源</h2>
+  <p>我們提供完整的 SDK 與 API 文件，協助開發者快速將遊戲部署到 FMTX AI 平台。</p>
+  <a href="#" class="btn-link">下載 SDK</a>
+  <a href="#" class="btn-link">查看文件</a>
 </section>
 </main>
+</div>
 
 <footer>
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
+<button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
 
-<script src='script.js' defer></script>
+<div id='contact-modal' class='modal'>
+<div class='modal-content'>
+<span class='close-btn' aria-label='關閉視窗'>&times;</span>
+<h2>聯絡我們</h2>
+<form id='modal-contact-form'>
+<label for='mname'>姓名：</label>
+<input type='text' id='mname' name='mname' required><br><br>
+<label for='memail'>Email：</label>
+<input type='email' id='memail' name='memail' required><br><br>
+<label for='mmsg'>訊息：</label>
+<textarea id='mmsg' name='mmsg' rows='4' required></textarea><br><br>
+<button type='submit'>送出</button>
+</form>
+<div id='modal-response' style='margin-top:1rem; display:none;'></div>
+</div>
+</div>
 </body>
 </html>
