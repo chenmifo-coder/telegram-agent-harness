@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import logging
 from openai import OpenAI
 from github_utils import (
@@ -19,13 +20,14 @@ NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
 MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-MAX_FILE_CHARS      = int(os.getenv("MAX_FILE_CHARS", 80_000))
-# 每個檔案在摘要模式下最多顯示的字元數（約前 60 行）
-PREVIEW_CHARS_PER_FILE = int(os.getenv("PREVIEW_CHARS_PER_FILE", 1_500))
 MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", 2))
 TEMPERATURE    = float(os.getenv("AGENT_TEMPERATURE", 0.3))
+PREVIEW_CHARS  = int(os.getenv("PREVIEW_CHARS", 800))   # 規劃階段每檔摘要長度
 
 SITE_URL = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/"
+
+# 禁止刪除的核心檔案
+PROTECTED_FILES = frozenset({"index.html", "style.css", ".nojekyll"})
 
 # ── OpenAI client ─────────────────────────────────────────────────────────────
 client = OpenAI(
@@ -35,267 +37,199 @@ client = OpenAI(
     max_retries=3,
 )
 
-# ── Prompts ───────────────────────────────────────────────────────────────────
-
-# 【修正】意圖分類改用關鍵字比對，完全不呼叫 LLM，避免耗時與誤判
+# ── 意圖分類（關鍵字，零延遲） ─────────────────────────────────────────────────
 QUERY_KEYWORDS = (
     "只回報", "只列出", "列出", "查詢", "回報", "有哪些", "哪些檔案",
     "什麼都不要改", "不要修改", "不需要改", "不用改", "告訴我",
 )
 
-def _classify_intent(user_message: str) -> str:
-    """
-    用關鍵字快速判斷意圖，回傳 'QUERY' 或 'MODIFY'。
-    不呼叫 LLM，零延遲，不會誤判。
-    """
+def _classify_intent(msg: str) -> str:
     for kw in QUERY_KEYWORDS:
-        if kw in user_message:
-            logger.info("意圖分類（關鍵字比對）：QUERY（命中關鍵字：%s）", kw)
+        if kw in msg:
+            logger.info("意圖：QUERY（%s）", kw)
             return "QUERY"
-    logger.info("意圖分類（關鍵字比對）：MODIFY")
+    logger.info("意圖：MODIFY")
     return "MODIFY"
 
-
-def _answer_query(current_content: dict[str, str]) -> str:
-    """查詢類：直接回傳檔案清單，完全不呼叫 LLM。"""
+def _answer_query(current_content: dict) -> str:
     file_list = "\n".join(f"• {f}" for f in sorted(current_content.keys()))
     return f"📁 目前網站共有 {len(current_content)} 個檔案：\n{file_list}"
 
-
 def _strip_docs_prefix(path: str) -> str:
-    """移除 LLM 可能誤加的 docs/ 前綴，避免變成 docs/docs/。"""
     for prefix in ("docs/docs/", "docs/"):
         if path.startswith(prefix):
             return path[len(prefix):]
     return path
 
-
-def _parse_llm_response(text: str) -> dict:
-    """
-    解析自訂分隔符格式，回傳：
-    {"file_updates": [{"path": "...", "content": "..."}], "reply_message": "..."}
-    """
-    # >>{2,3} 容錯：允許模型輸出 >> 或 >>> 結尾（常見筆誤）
-    # \s* 容錯：允許標記與內容之間有多餘空白或換行
-    file_pattern = re.compile(
-        r'<<<FILENAME:(?P<path>[^>\n]+?)>{2,3}\s*\n(?P<content>.*?)<<<END>{2,3}',
-        re.DOTALL
-    )
-    reply_pattern = re.compile(
-        r'<<<REPLY>{2,3}\s*\n?(?P<reply>.*?)<<<END>{2,3}',
-        re.DOTALL
-    )
-
-    file_updates = [
-        {"path": m.group("path").strip(), "content": m.group("content").rstrip("\n")}
-        for m in file_pattern.finditer(text)
-    ]
-
-    # 優先用 <<<REPLY>>> 區塊；若沒有，抓回覆開頭第一段非空白文字當 fallback
-    reply_match = reply_pattern.search(text)
-    if reply_match:
-        reply = reply_match.group("reply").strip()
-    else:
-        # fallback：取第一個 <<< 標記之前的文字（模型可能把說明放最前面但忘了包標記）
-        pre_marker = text.split("<<<")[0].strip()
-        reply = pre_marker if pre_marker else "（AI 未提供修改說明）"
-        if reply != "（AI 未提供修改說明）":
-            logger.warning("<<<REPLY>>> 區塊缺失，使用前綴文字作為說明：%s", reply[:80])
-
-    # 解析刪除指令：<<<DELETE:檔名>>>
-    delete_pattern = re.compile(r'<<<DELETE:(?P<path>[^>\n]+?)>{2,3}')
-    file_deletes = [m.group("path").strip() for m in delete_pattern.finditer(text)]
-
-    if not file_updates and not file_deletes:
-        raise ValueError(f"LLM 回覆中找不到任何 <<<FILENAME:...>>> 或 <<<DELETE:...>>> 區塊，原始回覆：{text[:300]}")
-
-    return {"file_updates": file_updates, "file_deletes": file_deletes, "reply_message": reply}
-
-
-def _build_files_text(current_content: dict[str, str], preview_only: bool = False) -> str:
-    """
-    將檔案字典組合成提示用文字。
-    preview_only=True：每個檔案只傳前 PREVIEW_CHARS_PER_FILE 字元的預覽（適合小修改）。
-    preview_only=False：傳完整內容，總量上限 MAX_FILE_CHARS（適合大改動）。
-    """
-    parts = []
-    total = 0
-
-    for path, content in current_content.items():
-        if preview_only:
-            snippet = content[:PREVIEW_CHARS_PER_FILE]
-            truncated = len(content) > PREVIEW_CHARS_PER_FILE
-            block = f"=== {path} ({len(content)} 字元) ===\n{snippet}"
-            if truncated:
-                block += f"\n...（僅顯示前 {PREVIEW_CHARS_PER_FILE} 字元，完整內容已省略）"
-        else:
-            remaining = MAX_FILE_CHARS - total
-            if remaining <= 0:
-                break
-            snippet = content[:remaining]
-            truncated = len(content) > remaining
-            block = f"=== {path} ===\n{snippet}"
-            if truncated:
-                logger.warning("檔案 %s 內容已截斷（總量達上限 %d）", path, MAX_FILE_CHARS)
-                block += "\n...（內容過長，已截斷）"
-            total += len(snippet)
-
-        parts.append(block)
-
-    return "\n\n".join(parts)
-
-
-def _estimate_scope(user_message: str) -> str:
-    """
-    根據使用者訊息長度與關鍵字，判斷是小修改（preview）還是大改動（full）。
-    回傳 'preview' 或 'full'。
-    """
-    FULL_KEYWORDS = (
-        "重新設計", "打掉重練", "全新", "整個網站", "所有頁面",
-        "完全改", "重構", "重寫", "新增頁面", "新增一個",
-    )
-    for kw in FULL_KEYWORDS:
-        if kw in user_message:
-            logger.info("改動範圍判斷：full（命中關鍵字：%s）", kw)
-            return "full"
-    logger.info("改動範圍判斷：preview（小修改，使用摘要模式）")
-    return "preview"
-
-
-# ── 核心邏輯 ──────────────────────────────────────────────────────────────────
-
-SYSTEM_PROMPT = """
-你是一位專業的前端開發工程師與網站設計師。你的任務是根據使用者的要求，修改公司網站的檔案。
-公司網站目前位於 docs/ 資料夾，包含 HTML/CSS/JS 檔案。
-
-【輸出格式規則】
-請嚴格按照以下順序輸出，先輸出說明，再輸出檔案：
-
-第一步，先輸出修改說明：
-<<<REPLY>>>
-（必填）簡短說明做了哪些修改，例如：新增 contact.html 聯絡頁面，並更新 index.html 導覽列
-<<<END>>>
-
-第二步，再輸出每一個需要新增或修改的檔案：
-<<<FILENAME:contact.html>>>
-（完整的 contact.html 內容，不可省略或截斷）
-<<<END>>>
-
-<<<FILENAME:index.html>>>
-（完整的 index.html 內容）
-<<<END>>>
-
-第三步（選用），若需要刪除某些檔案，輸出刪除指令：
-<<<DELETE:snake.html>>>
-<<<DELETE:snake.js>>>
-
-【注意事項】
-- <<<REPLY>>> 必須是第一個區塊，在所有 FILENAME 之前
-- FILENAME 與 DELETE 後面只填檔名，不要加 docs/ 等目錄前綴
-- <<<DELETE:檔名>>> 不需要 <<<END>>>，一行一個
-- 每個區塊之間可以有空行
-- <<<END>>> 之後不要有任何多餘說明
-- 保持設計現代、響應式、美觀
-""".strip()
-
-
-def process_user_request(user_message: str, current_files_content: str) -> dict:
-    """呼叫 LLM，回傳已解析的更新字典。失敗時最多重試 MAX_RETRIES 次。"""
-    user_prompt = (
-        f"使用者要求：{user_message}\n\n"
-        f"目前網站檔案內容：\n{current_files_content}\n\n"
-        "請依照系統指示的格式輸出，用 <<<FILENAME:檔名>>> ... <<<END>>> 包住每個檔案內容，"
-        "並在最後輸出 <<<REPLY>>>...<<<END>>>。"
-    )
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user",   "content": user_prompt},
-    ]
-
-    last_error: Exception | None = None
+def _llm(messages: list, max_tokens: int = 4096) -> str:
+    """統一的 LLM 呼叫，含重試。"""
+    last_error = None
     for attempt in range(1, MAX_RETRIES + 2):
         try:
-            logger.info("呼叫 LLM（第 %d 次）…", attempt)
-            response = client.chat.completions.create(
+            resp = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
                 temperature=TEMPERATURE,
+                max_tokens=max_tokens,
             )
-            raw = response.choices[0].message.content
-            logger.info("LLM 原始回覆（前 500 字）：%s", raw[:500])
-            return _parse_llm_response(raw)
-
-        except ValueError as e:
-            last_error = e
-            logger.warning("解析失敗（第 %d 次）：%s", attempt, e)
+            return resp.choices[0].message.content
         except Exception as e:
-            last_error = Exception(f"AI 呼叫失敗：{e}")
-            logger.error("LLM 呼叫異常（第 %d 次）：%s", attempt, e)
-            break
-
-    raise last_error
+            last_error = e
+            logger.warning("LLM 呼叫失敗（第 %d 次）：%s", attempt, e)
+    raise Exception(f"LLM 呼叫失敗：{last_error}")
 
 
-# 禁止刪除的核心檔案，無論 LLM 怎麼要求都不會執行
-PROTECTED_FILES = frozenset({
-    "index.html",
-    "style.css",
-    ".nojekyll",
-})
+# ══════════════════════════════════════════════════════════════════════════════
+# Step 1：規劃 — LLM 決定要動哪些檔案、做什麼
+# ══════════════════════════════════════════════════════════════════════════════
 
+PLAN_SYSTEM = """
+你是資深前端架構師。根據使用者需求與現有網站結構，規劃需要的檔案異動。
 
-def apply_updates(updates: dict) -> tuple[bool, str]:
-    """將 LLM 產生的檔案更新與刪除寫回 GitHub，回傳 (成功, 訊息)。"""
-    file_updates = updates.get("file_updates", [])
-    file_deletes = updates.get("file_deletes", [])
+只輸出一個合法 JSON，格式如下：
+{
+  "summary": "簡短說明這次改動的目標",
+  "files_to_update": ["index.html", "style.css"],
+  "files_to_create": ["contact.html"],
+  "files_to_delete": ["old.html"],
+  "context_files": ["style.css"]
+}
 
-    if not file_updates and not file_deletes:
-        return False, "LLM 未提供任何檔案更新或刪除內容。"
+欄位說明：
+- files_to_update：需要修改的現有檔案
+- files_to_create：需要新建的檔案
+- files_to_delete：需要刪除的檔案（謹慎使用）
+- context_files：生成時需要參考的檔案（例如生成新 HTML 時需要參考 style.css 的 class 名稱）
 
-    # 寫入／更新
-    for item in file_updates:
-        raw_path = item.get("path", "").strip()
-        content  = item.get("content", "")
-        if not raw_path:
-            logger.warning("跳過一筆缺少 path 的更新項目")
-            continue
+只輸出 JSON，不要有任何其他文字。
+""".strip()
 
-        path = _strip_docs_prefix(raw_path)
-        if path != raw_path:
-            logger.warning("已自動移除多餘路徑前綴：%s → %s", raw_path, path)
+def _step1_plan(user_message: str, current_content: dict) -> dict:
+    """Step 1：規劃階段，每個檔案只傳摘要，快速讓 LLM 理解網站結構。"""
+    # 建立檔案摘要（只傳前 PREVIEW_CHARS 字元）
+    file_summary = []
+    for fname, content in current_content.items():
+        preview = content[:PREVIEW_CHARS]
+        truncated = "...（已截斷）" if len(content) > PREVIEW_CHARS else ""
+        file_summary.append(f"=== {fname} ({len(content)} 字元) ===\n{preview}{truncated}")
+    files_overview = "\n\n".join(file_summary)
 
-        logger.info("更新檔案：%s", path)
-        success = update_or_create_file(path, content, f"AI 自動更新: {path}")
-        if not success:
-            return False, f"更新 {path} 失敗，請檢查 GitHub 權限或 API 限制。"
+    prompt = (
+        f"使用者需求：{user_message}\n\n"
+        f"現有檔案概覽：\n{files_overview}\n\n"
+        "請輸出規劃 JSON。"
+    )
+    raw = _llm([
+        {"role": "system", "content": PLAN_SYSTEM},
+        {"role": "user",   "content": prompt},
+    ], max_tokens=512)
 
-    # 刪除（受保護的檔案直接跳過）
-    skipped = []
-    for raw_path in file_deletes:
-        path = _strip_docs_prefix(raw_path.strip())
+    logger.info("Step1 規劃結果：%s", raw[:300])
 
-        if path in PROTECTED_FILES:
-            logger.warning("拒絕刪除受保護的核心檔案：%s", path)
-            skipped.append(path)
-            continue
+    # 解析 JSON
+    cleaned = re.sub(r"```(?:json)?|```", "", raw).strip()
+    match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+    if not match:
+        raise ValueError(f"規劃階段無法解析 JSON：{raw[:200]}")
+    plan = json.loads(match.group(0))
 
-        logger.info("刪除檔案：%s", path)
-        success = delete_file(path, f"AI 自動刪除: {path}")
-        if not success:
-            logger.warning("刪除 %s 失敗（可能已不存在），繼續執行", path)
-
-    reply = updates.get("reply_message") or "（AI 未提供修改說明）"
+    # 過濾受保護檔案
+    to_delete = [f for f in plan.get("files_to_delete", []) if f not in PROTECTED_FILES]
+    skipped   = [f for f in plan.get("files_to_delete", []) if f in PROTECTED_FILES]
     if skipped:
-        skipped_str = ", ".join(skipped)
-        # LLM 的 reply 可能寫「已刪除 xxx」但實際被擋下，直接覆蓋避免誤導使用者
-        reply = "⚠️ 以下核心檔案受保護，拒絕刪除：" + skipped_str + "\n其餘操作已正常執行。"
-    return True, reply
+        logger.warning("規劃階段：以下受保護檔案已從刪除清單移除：%s", skipped)
+    plan["files_to_delete"] = to_delete
+    plan["_skipped_protected"] = skipped
 
+    return plan
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Step 2：逐檔生成 — 每個檔案獨立一次 LLM 呼叫
+# ══════════════════════════════════════════════════════════════════════════════
+
+GENERATE_SYSTEM = """
+你是專業前端工程師。你的任務是生成或修改「單一檔案」的完整內容。
+
+規則：
+1. 只輸出該檔案的完整內容，不要有任何說明文字、標記或 markdown。
+2. 內容必須完整，不可省略或截斷。
+3. HTML 標籤必須正確閉合，JS 括號必須配對。
+4. 保持設計現代、響應式、美觀。
+""".strip()
+
+def _step2_generate_file(
+    filename: str,
+    action: str,          # "update" 或 "create"
+    user_message: str,
+    plan_summary: str,
+    existing_content: str | None,
+    context_files: dict[str, str],
+) -> str:
+    """Step 2：為單一檔案呼叫 LLM 生成完整內容。"""
+
+    context_text = ""
+    if context_files:
+        parts = [f"=== {k} ===\n{v}" for k, v in context_files.items()]
+        context_text = "參考檔案：\n" + "\n\n".join(parts) + "\n\n"
+
+    if action == "update" and existing_content:
+        task = (
+            f"請修改 {filename}，根據以下需求：{user_message}\n"
+            f"整體規劃說明：{plan_summary}\n\n"
+            f"{context_text}"
+            f"現有 {filename} 內容：\n{existing_content}\n\n"
+            f"請輸出修改後的完整 {filename} 內容："
+        )
+    else:
+        task = (
+            f"請建立全新的 {filename}，根據以下需求：{user_message}\n"
+            f"整體規劃說明：{plan_summary}\n\n"
+            f"{context_text}"
+            f"請輸出完整的 {filename} 內容："
+        )
+
+    logger.info("Step2 生成檔案：%s（%s）", filename, action)
+    content = _llm([
+        {"role": "system", "content": GENERATE_SYSTEM},
+        {"role": "user",   "content": task},
+    ], max_tokens=4096)
+
+    # 清除可能的 markdown 包裝
+    content = re.sub(r'^```[\w]*\n?', '', content.strip())
+    content = re.sub(r'\n?```$', '', content.strip())
+    return content.strip()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Step 3：基本驗證
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _step3_validate(filename: str, content: str) -> list[str]:
+    """Step 3：基本語法驗證，回傳警告清單（不阻擋寫入，只記錄）。"""
+    warnings = []
+    if filename.endswith(".html"):
+        if "<!DOCTYPE" not in content and "<html" not in content:
+            warnings.append("缺少 <!DOCTYPE> 或 <html> 標籤")
+        open_tags  = len(re.findall(r'<body[^>]*>', content))
+        close_tags = len(re.findall(r'</body>', content))
+        if open_tags != close_tags:
+            warnings.append(f"<body> 標籤不配對（開 {open_tags} / 閉 {close_tags}）")
+    if filename.endswith(".js"):
+        opens  = content.count('{')
+        closes = content.count('}')
+        if abs(opens - closes) > 2:
+            warnings.append(f"JS 大括號不配對（{{ {opens} / }} {closes}）")
+    return warnings
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 主流程
+# ══════════════════════════════════════════════════════════════════════════════
 
 def handle_user_message(user_message: str) -> str:
-    """主要入口：意圖分類 → 查詢直接回答 / 修改則更新網站。"""
     try:
-        # 1. 讀取現有網站所有檔案
+        # 讀取現有檔案
         files = list_website_files()
         current_content: dict[str, str] = {}
         for f in files:
@@ -306,22 +240,74 @@ def handle_user_message(user_message: str) -> str:
         if not current_content:
             return "❌ 無法讀取任何網站檔案，請確認 GitHub 存取設定。"
 
-        # 2. 關鍵字意圖分類（零延遲，不呼叫 LLM）
-        intent = _classify_intent(user_message)
-
-        # 3a. 查詢類：直接回傳檔案清單，不動任何檔案
-        if intent == "QUERY":
+        # 查詢類直接回答
+        if _classify_intent(user_message) == "QUERY":
             return _answer_query(current_content)
 
-        # 3b. 修改類：LLM 產生更新並寫回 GitHub
-        scope = _estimate_scope(user_message)
-        files_text = _build_files_text(current_content, preview_only=(scope == "preview"))
-        updates = process_user_request(user_message, files_text)
-        ok, result = apply_updates(updates)
+        # ── Step 1：規劃 ──────────────────────────────────────────────────────
+        logger.info("=== Step 1：規劃階段 ===")
+        plan = _step1_plan(user_message, current_content)
+        logger.info("規劃：更新%s 新建%s 刪除%s 參考%s",
+                    plan.get("files_to_update", []),
+                    plan.get("files_to_create", []),
+                    plan.get("files_to_delete", []),
+                    plan.get("context_files", []))
 
-        if ok:
-            return f"✅ 網站已更新！\n{result}\n🔗 {SITE_URL}"
-        return f"❌ 更新失敗：{result}"
+        # ── Step 2：逐檔生成 ──────────────────────────────────────────────────
+        logger.info("=== Step 2：逐檔生成階段 ===")
+        plan_summary = plan.get("summary", "")
+        context_files = {
+            f: current_content[f]
+            for f in plan.get("context_files", [])
+            if f in current_content
+        }
+        generated: dict[str, str] = {}
+
+        for fname in plan.get("files_to_update", []):
+            generated[fname] = _step2_generate_file(
+                fname, "update", user_message, plan_summary,
+                current_content.get(fname), context_files,
+            )
+        for fname in plan.get("files_to_create", []):
+            generated[fname] = _step2_generate_file(
+                fname, "create", user_message, plan_summary,
+                None, context_files,
+            )
+
+        # ── Step 3：驗證 ──────────────────────────────────────────────────────
+        logger.info("=== Step 3：驗證階段 ===")
+        for fname, content in generated.items():
+            warns = _step3_validate(fname, content)
+            if warns:
+                logger.warning("檔案 %s 驗證警告：%s", fname, warns)
+
+        # ── Step 4：寫入 GitHub ───────────────────────────────────────────────
+        logger.info("=== Step 4：寫入階段 ===")
+        for fname, content in generated.items():
+            logger.info("寫入：%s", fname)
+            ok = update_or_create_file(fname, content, f"AI 自動更新: {fname}")
+            if not ok:
+                return f"❌ 寫入 {fname} 失敗，請檢查 GitHub 權限。"
+
+        for fname in plan.get("files_to_delete", []):
+            logger.info("刪除：%s", fname)
+            delete_file(fname, f"AI 自動刪除: {fname}")
+
+        # ── 回覆訊息 ──────────────────────────────────────────────────────────
+        updated = plan.get("files_to_update", []) + plan.get("files_to_create", [])
+        deleted = plan.get("files_to_delete", [])
+        skipped = plan.get("_skipped_protected", [])
+
+        reply_parts = [f"✅ 網站已更新！\n📋 {plan_summary}"]
+        if updated:
+            reply_parts.append("📝 已更新／新增：" + ", ".join(updated))
+        if deleted:
+            reply_parts.append("🗑️ 已刪除：" + ", ".join(deleted))
+        if skipped:
+            reply_parts.append("⚠️ 受保護未刪除：" + ", ".join(skipped))
+        reply_parts.append(f"🔗 {SITE_URL}")
+
+        return "\n".join(reply_parts)
 
     except Exception as e:
         logger.exception("處理訊息時發生嚴重錯誤")
