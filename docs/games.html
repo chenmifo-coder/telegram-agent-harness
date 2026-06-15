@@ -64,82 +64,69 @@ body { background: var(--game-bg); }
   background:
     linear-gradient(
       to bottom,
-      rgba(0,0,0,0),
-      rgba(0,0,0,0.1)
+      rgba(0,0,0,0) 0%,
+      rgba(0,0,0,0.05) 40%,
+      rgba(0,0,0,0.1) 100%
     );
-  opacity: 0;
-  transition: var(--transition);
+  pointer-events: none;
 }
-.game-card:hover::after {
-  opacity: 1;
-}
-.game-icon {
-  width: 48px;
-  height: 48px;
+.game-card img {
+  max-width: 100%;
+  height: auto;
   margin-bottom: 1rem;
 }
-.game-title {
-  font-size: 1.25rem;
+.game-card h3 {
   margin: 0.5rem 0;
-  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--text-light);
 }
-.game-desc {
+.game-card p {
   font-size: 0.9rem;
-  color: #555;
+  color: #64748b;
 }
 </style>
 </head>
 <body>
 <header>
+<img src="logo.png" alt="FMTX Logo" class="logo">
 <div class="title">
 <h1>FMTX AI 創新公司</h1>
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
-<button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
 <div class="layout">
 <aside class="sidebar">
 <h2>選單</h2>
 <a href='index.html' class='nav-link'>首頁</a>
-<a href='games.html' class='nav-link active'>遊戲專區</a>
+<a href='games.html' class='nav-link'>遊戲專區</a>
 <a href='pricing.html' class='nav-link'>定價方案</a>
 <a href='contact.html' class='nav-link'>聯絡我們</a>
 <a href='power.html' class='nav-link'>電源工程師知識</a>
 </aside>
 
-<main class="main-content">
+<main class="main-content>
+<!-- 遊戲專區內容 -->
 <section>
   <h2 class="section-title">熱門遊戲</h2>
   <div class="game-list">
     <a href="#" class="game-card">
-      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
-      <div class="game-title">星際爭霸：重製版</div>
-      <p class="game-desc">經典即時戰略遊戲，全新 4K 畫質與重新平衡的玩法。</p>
+      <img src="https://via.placeholder.com/260x150?text=Game+1" alt="遊戲 1">
+      <h3>太空探險</h3>
+      <p>探索未知星系，解開宇宙謎題。</p>
     </a>
     <a href="#" class="game-card">
-      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
-      <div class="game-title">魔法王座</div>
-      <p class="game-desc">大型多人線上角色扮演遊戲，開放世界與豐富劇情。</p>
+      <img src="https://via.placeholder.com/260x150?text=Game+2" alt="遊戲 2">
+      <h3>魔法王國</h3>
+      <p>施展咒語，擊敗黑暗勢力。</p>
     </a>
     <a href="#" class="game-card">
-      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
-      <div class="game-title">極速飛車：雲端版</div>
-      <p class="game-desc">利用雲端運算的競速遊戲，實時光線追蹤與物理模擬。</p>
+      <img src="https://via.placeholder.com/260x150?text=Game+3" alt="遊戲 3">
+      <h3>賽車狂飆</p>
+      <p>高速競速，挑戰極限。</p>
     </a>
-    <a href="#" class="game-card">
-      <img src="https://via.placeholder.com/96" alt="遊戲圖示" class="game-icon">
-      <div class="game-title">戰術小隊</div>
-      <p class="game-desc">團隊合作射擊遊戲，支援跨平台匹配與即時語音。</p>
-    </a>
+    <!-- 更多遊戲卡片可依需求添加 -->
   </div>
-</section>
-
-<section>
-  <h2 class="section-title">開發者資源</h2>
-  <p>我們提供完整的 SDK 與 API 文件，協助開發者快速將遊戲部署到 FMTX AI 平台。</p>
-  <a href="#" class="btn-link">下載 SDK</a>
-  <a href="#" class="btn-link">查看文件</a>
 </section>
 </main>
 </div>
@@ -148,22 +135,3 @@ body { background: var(--game-bg); }
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
-
-<div id='contact-modal' class='modal'>
-<div class='modal-content'>
-<span class='close-btn' aria-label='關閉視窗'>&times;</span>
-<h2>聯絡我們</h2>
-<form id='modal-contact-form'>
-<label for='mname'>姓名：</label>
-<input type='text' id='mname' name='mname' required><br><br>
-<label for='memail'>Email：</label>
-<input type='email' id='memail' name='memail' required><br><br>
-<label for='mmsg'>訊息：</label>
-<textarea id='mmsg' name='mmsg' rows='4' required></textarea><br><br>
-<button type='submit'>送出</button>
-</form>
-<div id='modal-response' style='margin-top:1rem; display:none;'></div>
-</div>
-</div>
-</body>
-</html>
