@@ -8,11 +8,11 @@
 </head>
 <body>
 <header>
+<img src="logo.png" alt="FMTX Logo" class="logo">
 <div class="title">
 <h1>FMTX AI 創新公司</h1>
 <p>AI 驅動的下一代雲端解決方案</p>
 </div>
-<button id='theme-toggle' class='theme-toggle' aria-label='切換深色/淺色模式'>🌓</button>
 </header>
 
 <div class="layout">
@@ -61,22 +61,3 @@
 <p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
 <button id='contact-btn' class='contact-btn'>聯絡我們</button>
 </footer>
-
-<div id='contact-modal' class='modal'>
-<div class='modal-content'>
-<span class='close-btn' aria-label='關閉視窗'>&times;</span>
-<h2>聯絡我們</h2>
-<form id='modal-contact-form'>
-<label for='mname'>姓名：</label>
-<input type='text' id='mname' name='mname' required><br><br>
-<label for='memail'>Email：</label>
-<input type='email' id='memail' name='memail' required><br><br>
-<label for='mmsg'>訊息：</label>
-<textarea id='mmsg' name='mmsg' rows='4' required></textarea><br><br>
-<button type='submit'>送出</button>
-</form>
-<div id='modal-response' style='margin-top:1rem; display:none;'></div>
-</div>
-</div>
-</body>
-</html>
