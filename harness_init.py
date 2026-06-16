@@ -2,9 +2,12 @@
 執行一次：初始化所有 Harness 設定檔並上傳到 GitHub。
 用法：python harness_init.py
 """
-import json, os, sys
+import json
+import os
+import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from github_utils import update_or_create_file
+from config import HARNESS_PATH
 
 # ── 1. 設計系統 ───────────────────────────────────────────────────────────────
 DESIGN_SYSTEM = {
@@ -307,18 +310,16 @@ MEMORY = {
 
 # ── 上傳到 GitHub ─────────────────────────────────────────────────────────────
 FILES = {
-    "../harness/design_system.json": DESIGN_SYSTEM,
-    "../harness/components.json":    COMPONENTS,
-    "../harness/site_map.json":      SITE_MAP,
-    "../harness/memory.json":        MEMORY,
+    f"{HARNESS_PATH}/design_system.json": DESIGN_SYSTEM,
+    f"{HARNESS_PATH}/components.json":    COMPONENTS,
+    f"{HARNESS_PATH}/site_map.json":      SITE_MAP,
+    f"{HARNESS_PATH}/memory.json":        MEMORY,
 }
 
 if __name__ == "__main__":
     print("初始化 Harness 設定檔...")
     for path, data in FILES.items():
         content = json.dumps(data, ensure_ascii=False, indent=2)
-        ok = update_or_create_file(path, content, f"Harness 初始化: {path}")
-        status = "✅" if ok else "❌"
-        print(f"{status} {path}")
-    print("\n完成！Harness 設定檔已上傳至 GitHub。")
-    print("接下來請更新 agent.py 並重新部署 Render。")
+        ok = update_or_create_file(path, content, f"Harness 初始化: {path}", subdir="")
+        print(f"{'✅' if ok else '❌'} {path}")
+    print("\n完成！請確認 GitHub 倉庫根目錄下已產生 harness/ 資料夾。")
