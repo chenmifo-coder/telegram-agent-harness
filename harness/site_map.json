@@ -1,0 +1,45 @@
+{
+  "site_name": "FMTX AI 創新科技",
+  "base_url": "https://chenmifo-coder.github.io/telegram-agent-harness/",
+  "nav_links": [
+    {
+      "label": "首頁",
+      "href": "index.html"
+    },
+    {
+      "label": "遊戲專區",
+      "href": "games.html"
+    },
+    {
+      "label": "定價方案",
+      "href": "pricing.html"
+    },
+    {
+      "label": "聯絡我們",
+      "href": "contact.html"
+    }
+  ],
+  "pages": {
+    "index.html": {
+      "title": "首頁",
+      "description": "公司首頁，包含 Hero、服務介紹、數據統計"
+    },
+    "games.html": {
+      "title": "遊戲專區",
+      "description": "小遊戲列表頁面"
+    },
+    "pricing.html": {
+      "title": "定價方案",
+      "description": "服務定價頁面"
+    },
+    "contact.html": {
+      "title": "聯絡我們",
+      "description": "聯絡表單頁面"
+    },
+    "style.css": {
+      "title": "樣式表",
+      "description": "全站共用 CSS"
+    }
+  },
+  "last_updated": "2026-06-13"
+}
