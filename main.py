@@ -1,27 +1,23 @@
 import os
 import threading
 import traceback
-import requests
 from flask import Flask, request
 from telegram_utils import send_message, set_webhook
 from agent import handle_user_message
+from config import TELEGRAM_TOKEN, RENDER_EXTERNAL_URL
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL")
-
-# 取代 @app.before_request，在應用程式啟動時主動執行一次 Webhook 註冊
 def init_webhook():
     if RENDER_EXTERNAL_URL:
         webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
         try:
             result = set_webhook(TELEGRAM_TOKEN, webhook_url)
-            print(f"✅ Webhook setup result: {result}")
+            print(f"✅ Webhook 設定結果: {result}")
         except Exception as e:
-            print(f"❌ Failed to set webhook: {e}")
+            print(f"❌ Webhook 設定失敗: {e}")
 
-# 若是透過 Gunicorn 啟動，會在模組載入時執行
+# 在 Gunicorn 啟動時執行（模組載入階段）
 init_webhook()
 
 @app.route("/health", methods=["GET"])
@@ -30,7 +26,7 @@ def health():
 
 @app.route("/", methods=["GET"])
 def index():
-    return "Bot is awake and running!", 200
+    return "Bot is running!", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -38,24 +34,19 @@ def webhook():
     if not update or "message" not in update:
         return "OK", 200
 
-    message = update["message"]
-    chat_id = message["chat"]["id"]
-    text = message.get("text", "")
-
+    chat_id = update["message"]["chat"]["id"]
+    text = update["message"].get("text", "")
     if not text:
-        return "OK", 200 # 忽略非文字訊息(如貼圖、照片)
+        return "OK", 200
 
-    # 由於 LLM 處理和 GitHub API 呼叫需要時間，必須非同步處理，否則 Telegram Webhook 會 Timeout 重發
     def handle_async():
         try:
-            # 傳送處理中提示 (優化使用者體驗)
-            send_message(chat_id, "⏳ 收到請求，AI 正在分析並修改程式碼，請稍候...")
+            send_message(chat_id, "⏳ 收到請求，AI 正在處理...")
             reply = handle_user_message(text)
         except Exception as e:
             error_trace = traceback.format_exc()
-            print(f"❌ ERROR in handle_user_message:\n{error_trace}")
-            reply = f"❌ 內部錯誤：{str(e)}\n請稍後再試，或檢查系統日誌。"
-        
+            print(f"❌ 處理錯誤:\n{error_trace}")
+            reply = f"❌ 內部錯誤：{str(e)}"
         send_message(chat_id, reply)
 
     threading.Thread(target=handle_async).start()
