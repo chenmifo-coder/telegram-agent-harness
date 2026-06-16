@@ -6,6 +6,7 @@ import datetime
 from openai import OpenAI
 from github_utils import (
     get_file_content,
+    get_any_file_content, # [新增] 引入根目錄讀取函式
     list_website_files,
     update_or_create_file,
     delete_file,
@@ -29,11 +30,12 @@ SITE_URL        = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/"
 PROTECTED_FILES = frozenset({"index.html", "style.css", ".nojekyll"})
 
 # Harness 設定檔路徑（相對於 docs/ 往上一層）
+# [修改] 移除 "../"，直接使用根目錄下的 harness 資料夾
 HARNESS_PATHS = {
-    "design_system": "../harness/design_system.json",
-    "components":    "../harness/components.json",
-    "site_map":      "../harness/site_map.json",
-    "memory":        "../harness/memory.json",
+    "design_system": "harness/design_system.json",
+    "components":    "harness/components.json",
+    "site_map":      "harness/site_map.json",
+    "memory":        "harness/memory.json",
 }
 
 # ── OpenAI client ─────────────────────────────────────────────────────────────
@@ -89,7 +91,8 @@ def _load_harness() -> dict:
     """從 GitHub 讀取所有 Harness 設定檔。"""
     harness = {}
     for key, path in HARNESS_PATHS.items():
-        raw = get_file_content(path)
+        # [修改] 使用 get_any_file_content 來讀取根目錄檔案
+        raw = get_any_file_content(path)
         if raw:
             try:
                 harness[key] = json.loads(raw)
@@ -98,7 +101,7 @@ def _load_harness() -> dict:
                 logger.warning("Harness JSON 解析失敗：%s", key)
                 harness[key] = {}
         else:
-            logger.warning("Harness 設定不存在：%s（請先執行 harness_init.py）", key)
+            logger.warning("Harness 設定不存在：%s", key)
             harness[key] = {}
     return harness
 
@@ -106,7 +109,8 @@ def _save_harness(key: str, data: dict):
     """將 Harness 設定寫回 GitHub。"""
     path = HARNESS_PATHS[key]
     content = json.dumps(data, ensure_ascii=False, indent=2)
-    ok = update_or_create_file(path, content, f"Harness 自動更新: {key}")
+    # [修改] 加上 is_root=True 確保寫入根目錄
+    ok = update_or_create_file(path, content, f"Harness 自動更新: {key}", is_root=True)
     if not ok:
         logger.warning("Harness 寫入失敗：%s", key)
 
