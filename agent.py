@@ -3,14 +3,12 @@ import re
 import json
 import logging
 import datetime
+from typing import Dict, List, Optional, Any
 from openai import OpenAI
-from github_utils import (
-    get_file_content,
-    list_website_files,
-    update_or_create_file,
-    delete_file,
-    REPO_OWNER,
-    REPO_NAME,
+from github_utils import get_file_content, list_files, update_or_create_file, delete_file
+from config import (
+    NVIDIA_API_KEY, MODEL_NAME, MAX_RETRIES, TEMPERATURE,
+    PREVIEW_CHARS, SITE_URL, PROTECTED_FILES, WEBSITE_PATH, HARNESS_PATH
 )
 
 # ── 設定 ──────────────────────────────────────────────────────────────────────
@@ -28,12 +26,12 @@ PREVIEW_CHARS  = int(os.getenv("PREVIEW_CHARS", 600))
 SITE_URL        = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/"
 PROTECTED_FILES = frozenset({"index.html", "style.css", ".nojekyll"})
 
-# Harness 設定檔路徑（相對於 docs/ 往上一層）
+# ── Harness 設定檔路徑（相對於倉庫根目錄）────────────────────────────────────
 HARNESS_PATHS = {
-    "design_system": "../harness/design_system.json",
-    "components":    "../harness/components.json",
-    "site_map":      "../harness/site_map.json",
-    "memory":        "../harness/memory.json",
+    "design_system": f"{HARNESS_PATH}/design_system.json",
+    "components":    f"{HARNESS_PATH}/components.json",
+    "site_map":      f"{HARNESS_PATH}/site_map.json",
+    "memory":        f"{HARNESS_PATH}/memory.json",
 }
 
 # ── OpenAI client ─────────────────────────────────────────────────────────────
@@ -86,10 +84,10 @@ def _llm(messages: list, max_tokens: int = 4096) -> str:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _load_harness() -> dict:
-    """從 GitHub 讀取所有 Harness 設定檔。"""
+    """從 GitHub 讀取所有 Harness 設定檔（位於 HARNESS_PATH 目錄）。"""
     harness = {}
     for key, path in HARNESS_PATHS.items():
-        raw = get_file_content(path)
+        raw = get_file_content(path, subdir="")  # 根目錄
         if raw:
             try:
                 harness[key] = json.loads(raw)
@@ -103,10 +101,10 @@ def _load_harness() -> dict:
     return harness
 
 def _save_harness(key: str, data: dict):
-    """將 Harness 設定寫回 GitHub。"""
+    """將 Harness 設定寫回 GitHub（根目錄）。"""
     path = HARNESS_PATHS[key]
     content = json.dumps(data, ensure_ascii=False, indent=2)
-    ok = update_or_create_file(path, content, f"Harness 自動更新: {key}")
+    ok = update_or_create_file(path, content, f"Harness 自動更新: {key}", subdir="")
     if not ok:
         logger.warning("Harness 寫入失敗：%s", key)
 
