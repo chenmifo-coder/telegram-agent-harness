@@ -206,7 +206,7 @@ PLAN_SYSTEM = """
 只輸出一個合法 JSON，不要有任何其他文字：
 
 {
-  "summary": "簡短說明這次改動目標（繁體中文）",
+  "summary": "簡短說明這次改動目標（繁體中文，請嚴格限制在 30 字以內）",  # 👈 加上這句字數限制
   "files_to_update": ["index.html"],
   "files_to_create": ["contact.html"],
   "files_to_delete": [],
@@ -246,7 +246,7 @@ def _step1_plan(user_message: str, current_content: dict, harness: dict) -> dict
             f"過去設計決定：{past_decisions}\n\n"
             "現有檔案：\n" + "\n\n".join(file_summary)
         )},
-    ], max_tokens=512)
+    ], max_tokens=1024)  # 👈 將原本的 512 改為 1024
 
     logger.info("Step1 規劃原始：%s", raw[:300])
     cleaned = re.sub(r"```(?:json)?|```", "", raw).strip()
