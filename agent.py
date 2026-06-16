@@ -19,10 +19,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 NVIDIA_API_KEY = os.environ["NVIDIA_API_KEY"]
-#MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
 #MODEL_NAME     = os.getenv("AGENT_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-MODEL_NAME     = os.getenv("AGENT_MODEL", "meta/llama-3.1-70b-instruct")
+#MODEL_NAME     = os.getenv("AGENT_MODEL", "meta/llama-3.1-70b-instruct")
 MAX_RETRIES    = int(os.getenv("AGENT_MAX_RETRIES", 2))
 TEMPERATURE    = float(os.getenv("AGENT_TEMPERATURE", 0.3))
 PREVIEW_CHARS  = int(os.getenv("PREVIEW_CHARS", 600))
