@@ -1,0 +1,49 @@
+{
+  "style": "tech-dark",
+  "description": "科技感深色風格，深藍/紫/霓虹色調",
+  "colors": {
+    "bg_primary": "#0A0A1A",
+    "bg_secondary": "#12122A",
+    "bg_card": "#1A1A35",
+    "accent": "#6C63FF",
+    "accent_glow": "#8B80FF",
+    "accent_neon": "#00D4FF",
+    "text_primary": "#E8E8F0",
+    "text_secondary": "#9898B0",
+    "text_muted": "#5A5A7A",
+    "border": "#2A2A4A",
+    "success": "#00E676",
+    "warning": "#FFB300",
+    "error": "#FF5252"
+  },
+  "fonts": {
+    "heading": "Inter",
+    "body": "Noto Sans TC",
+    "mono": "JetBrains Mono",
+    "cdn": "<link rel='preconnect' href='https://fonts.googleapis.com'>\n<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>"
+  },
+  "spacing": {
+    "section_padding": "80px 0",
+    "card_padding": "24px",
+    "border_radius": "12px",
+    "border_radius_lg": "20px"
+  },
+  "effects": {
+    "card_shadow": "0 4px 24px rgba(108,99,255,0.15)",
+    "glow_accent": "0 0 20px rgba(108,99,255,0.4)",
+    "glow_neon": "0 0 20px rgba(0,212,255,0.4)",
+    "transition": "all 0.3s ease",
+    "glass": "background: rgba(26,26,53,0.8); backdrop-filter: blur(12px)"
+  },
+  "style_rules": [
+    "所有頁面背景色必須使用 bg_primary (#0A0A1A)",
+    "主要強調色使用 accent (#6C63FF)，hover 時使用 accent_glow (#8B80FF)",
+    "卡片使用 bg_card (#1A1A35) + border (#2A2A4A) + card_shadow",
+    "標題字體 Inter，內文 Noto Sans TC",
+    "按鈕：accent 背景，白色文字，hover 時 glow_accent 效果",
+    "所有互動元素必須有 transition: all 0.3s ease",
+    "霓虹裝飾色 accent_neon (#00D4FF) 只用於特別強調，不過度使用",
+    "分隔線使用 border (#2A2A4A)",
+    "所有頁面必須是響應式設計，手機版 max-width: 768px"
+  ]
+}
