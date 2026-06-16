@@ -14,17 +14,38 @@ WEBSITE_PATH = "docs"
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
 
-def _file_url(file_path: str) -> str:
+#def _file_url(file_path: str) -> str:
+#    return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
+def _file_url(file_path: str, is_root: bool = False) -> str:
+    """
+    產生 GitHub API 檔案路徑 URL。
+    若 is_root 為 True，則忽略 WEBSITE_PATH，直接指向儲存庫根目錄。
+    """
+    if is_root:
+        return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
     return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
 
-
-def _get_sha(file_path: str) -> str | None:
-    """取得檔案的 sha，刪除與更新都需要。找不到回傳 None。"""
-    resp = requests.get(_file_url(file_path), headers=HEADERS)
+#def _get_sha(file_path: str) -> str | None:
+#    """取得檔案的 sha，刪除與更新都需要。找不到回傳 None。"""
+#    resp = requests.get(_file_url(file_path), headers=HEADERS)
+#    if resp.status_code == 200:
+#        return resp.json().get("sha")
+#    return None
+def _get_sha(file_path: str, is_root: bool = False) -> str | None:
+    resp = requests.get(_file_url(file_path, is_root), headers=HEADERS)
     if resp.status_code == 200:
         return resp.json().get("sha")
     return None
 
+def get_any_file_content(file_path: str) -> str | None:
+    """取得根目錄的檔案內容"""
+    resp = requests.get(_file_url(file_path, is_root=True), headers=HEADERS)
+    if resp.status_code == 200:
+        return base64.b64decode(resp.json()["content"]).decode("utf-8")
+    elif resp.status_code == 404:
+        return None
+    logger.error("GitHub API Error (Get Any): %s - %s", resp.status_code, resp.text)
+    return None
 
 def get_file_content(file_path: str) -> str | None:
     resp = requests.get(_file_url(file_path), headers=HEADERS)
