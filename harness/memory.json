@@ -1,0 +1,16 @@
+{
+  "initialized": "2026-06-13",
+  "style": "tech-dark",
+  "design_decisions": [
+    {
+      "note": "確定使用科技感深色風格，主色 #6C63FF，背景 #0A0A1A"
+    },
+    {
+      "note": "字體：標題 Inter，內文 Noto Sans TC"
+    },
+    {
+      "note": "固定元件：導覽列 nav、Hero 區塊"
+    }
+  ],
+  "change_log": []
+}
