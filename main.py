@@ -1,5 +1,3 @@
-# 加在 main.py 最上面，執行一次後移除
-from harness_init import *   # 執行初始化
 import os
 import threading
 import traceback
@@ -7,6 +5,8 @@ import requests
 from flask import Flask, request
 from telegram_utils import send_message, set_webhook
 from agent import handle_user_message
+# 加在 main.py 最上面，執行一次後移除
+from harness_init import *   # 執行初始化
 
 app = Flask(__name__)
 
