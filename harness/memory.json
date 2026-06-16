@@ -18,6 +18,10 @@
     {
       "time": "2026-06-16 07:46 UTC",
       "note": "保持原有設計系統：標題使用 Inter，內文 Noto Sans TC，主色 #6C63FF，背景 #0A0A1A，僅在 Hero 標題下方插入副標題"
+    },
+    {
+      "time": "2026-06-16 08:12 UTC",
+      "note": "將主色改為 #6C63FF、背景 #0A0A1A，標題使用 Inter，內文 Noto Sans TC，僅在 Hero 標題下方插入副標題"
     }
   ],
   "change_log": [
@@ -34,6 +38,15 @@
       "request": "你上次生成的 index.html 壞掉了，缺少結尾標籤跟 footer。請幫我修復 index.html，確保它是一個完整的 HTML 檔案，包含完整的導覽列和頁腳，並加上『2026 全新上線』的副",
       "summary": "修復 index.html，補上結尾標籤與 footer，加入『2026 全新上線』副標題，並確保導覽列與頁腳完整",
       "files": [
+        "index.html"
+      ]
+    },
+    {
+      "time": "2026-06-16 08:12 UTC",
+      "request": "請重新設計網站",
+      "summary": "更新深色主題色彩、字體，在Hero標題下加副標題",
+      "files": [
+        "style.css",
         "index.html"
       ]
     }
