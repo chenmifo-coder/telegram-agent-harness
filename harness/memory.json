@@ -61,6 +61,14 @@
       "files": [
         "index.html"
       ]
+    },
+    {
+      "time": "2026-06-16 08:41 UTC",
+      "request": "「請幫我修復 index.html。你上一次生成的檔案被截斷了，導致目前缺少完整的導覽列 (site-header)、頁腳 (site-footer) 以及結尾的 </html> 標籤。\n\n請重新生成",
+      "summary": "修復 index.html 導覽列、頁腳與結尾標籤",
+      "files": [
+        "index.html"
+      ]
     }
   ]
 }
