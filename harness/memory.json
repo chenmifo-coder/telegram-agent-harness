@@ -69,6 +69,14 @@
       "files": [
         "index.html"
       ]
+    },
+    {
+      "time": "2026-06-16 08:48 UTC",
+      "request": "「請幫我修復 index.html 的樣式遺失問題。你上次生成的 HTML 雖然結構完整，但缺少了載入 CSS 的連結，也遺失了排版用的 class。\n\n請重新生成 index.html，並嚴格遵守以",
+      "summary": "修復index.html樣式遺失補回link與class",
+      "files": [
+        "index.html"
+      ]
     }
   ]
 }
