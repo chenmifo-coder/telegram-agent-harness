@@ -7,46 +7,46 @@
   <link rel="stylesheet" href="style.css">
   <link rel='preconnect' href='https://fonts.googleapis.com'>
   <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
-  <style>
-    :root {
-      --bg-primary: #0A0A1A;
-      --bg-secondary: #12122A;
-      --bg-card: #1A1A35;
-      --accent: #6C63FF;
-      --accent-glow: #8B80FF;
-      --accent-neon: #00D4FF;
-      --text-primary: #E8E8F0;
-      --text-secondary: #9898B0;
-      --text-muted: #5A5A7A;
-      --border: #2A2A4A;
-      --success: #00E676;
-      --warning: #FFB300;
-      --error: #FF5252;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-family: 'Noto Sans TC', sans-serif;
-      line-height: 1.6;
-      min-height: 100vh;
-    }
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-    section { padding: 80px 0; }
-    h1,h2,h3,h4 { font-family: 'Inter', sans-serif; font-weight: 700; color: var(--text-primary); }
-    h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); }
-    h3 { font-size: 1.25rem; }
-    a { color: var(--accent); }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 24px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 24px; }
-    .text-accent { color: var(--accent); }
-    .text-neon   { color: var(--accent-neon); }
-    .section-title { text-align: center; margin-bottom: 48px; }
-    .section-title h2 { margin-bottom: 12px; }
-    .section-title p  { color: var(--text-secondary); font-size: 1rem; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 28px; border-radius: 8px; font-weight: 600;
-      font-family: 'Inter', sans-serif; font-size: 0.95rem;
-      text-decoration: none; cursor: pointer; border: none
+</head>
+<body>
+<header class="site-header">
+  <nav class="navbar">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link active">首頁</a></li>
+      <li><a href="games.html" class="nav-link">遊戲專區</a></li>
+      <li><a href="pricing.html" class="nav-link">定價方案</a></li>
+      <li><a href="contact.html" class="nav-link">聯絡我們</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="選單">☰</button>
+  </nav>
+</header>
+<main>
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <span class="hero-tag">2026 全新上線</span>
+    <h1 class="hero-title">FMTX AI 創新科技</h1>
+    <p class="hero-desc">體驗下一代雲端 AI 解決方案，提升效率與創新力。</p>
+    <div class="hero-cta">
+      <a href="#features" class="btn btn-primary">了解更多</a>
+      <a href="#pricing" class="btn btn-outline">查看方案</a>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+    </div>
+    <p class="footer-desc">AI 驅動的下一代雲端解決方案</p>
+    <p class="footer-copy">© 2026 FMTX AI 創新科技股份有限公司</p>
+  </div>
+</footer>
+</body>
+</html>
