@@ -1,3 +1,5 @@
+# 加在 main.py 最上面，執行一次後移除
+from harness_init import *   # 執行初始化
 import os
 import threading
 import traceback
