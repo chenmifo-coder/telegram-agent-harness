@@ -22,6 +22,10 @@
     {
       "time": "2026-06-16 08:12 UTC",
       "note": "將主色改為 #6C63FF、背景 #0A0A1A，標題使用 Inter，內文 Noto Sans TC，僅在 Hero 標題下方插入副標題"
+    },
+    {
+      "time": "2026-06-16 08:33 UTC",
+      "note": "保持設計系統：主色 #6C63FF，背景 #0A0A1A，標題 Inter，內文 Noto Sans TC，Hero 標題下方加副標題"
     }
   ],
   "change_log": [
@@ -47,6 +51,14 @@
       "summary": "更新深色主題色彩、字體，在Hero標題下加副標題",
       "files": [
         "style.css",
+        "index.html"
+      ]
+    },
+    {
+      "time": "2026-06-16 08:33 UTC",
+      "request": "請先修復首頁",
+      "summary": "修復首頁：套用深色主題、加入Hero副標題",
+      "files": [
         "index.html"
       ]
     }
