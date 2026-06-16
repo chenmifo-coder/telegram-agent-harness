@@ -25,12 +25,6 @@ def _file_url(file_path: str, is_root: bool = False) -> str:
         return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
     return f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{WEBSITE_PATH}/{file_path}"
 
-#def _get_sha(file_path: str) -> str | None:
-#    """取得檔案的 sha，刪除與更新都需要。找不到回傳 None。"""
-#    resp = requests.get(_file_url(file_path), headers=HEADERS)
-#    if resp.status_code == 200:
-#        return resp.json().get("sha")
-#    return None
 def _get_sha(file_path: str, is_root: bool = False) -> str | None:
     resp = requests.get(_file_url(file_path, is_root), headers=HEADERS)
     if resp.status_code == 200:
@@ -57,8 +51,8 @@ def get_file_content(file_path: str) -> str | None:
     return None
 
 
-def update_or_create_file(file_path: str, content: str, commit_msg: str) -> bool:
-    sha = _get_sha(file_path)
+def update_or_create_file(file_path: str, content: str, commit_msg: str, is_root: bool = False) -> bool:
+    sha = _get_sha(file_path, is_root)
     data = {
         "message": commit_msg,
         "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
@@ -67,12 +61,11 @@ def update_or_create_file(file_path: str, content: str, commit_msg: str) -> bool
     if sha:
         data["sha"] = sha
 
-    resp = requests.put(_file_url(file_path), headers=HEADERS, json=data)
+    resp = requests.put(_file_url(file_path, is_root), headers=HEADERS, json=data)
     if resp.status_code not in [200, 201]:
         logger.error("GitHub API Error (Put): %s - %s", resp.status_code, resp.text)
         return False
     return True
-
 
 def delete_file(file_path: str, commit_msg: str | None = None) -> bool:
     """
