@@ -59,4 +59,12 @@ a { color: var(--accent); }
   font-family: 'Inter', sans-serif; font-weight: 600;
   font-size: 1.1rem; color: var(--text-primary); margin: 0 0 8px;
 }
-.card-text
+.card-text {
+  font-family: 'Noto Sans TC', sans-serif;
+  color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7;
+}
+
+.site-header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,10,26,0.85);
+  backdrop-filter
