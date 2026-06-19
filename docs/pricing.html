@@ -1,49 +1,64 @@
 <!DOCTYPE html>
-<html lang='zh-TW'>
+<html lang="zh-TW">
 <head>
-<meta charset='UTF-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>定價方案 - FMTX AI 創新公司</title>
-<link rel='stylesheet' href='style.css'>
-<style>
-.pricing { text-align: center; padding: 2rem 1rem; }
-.pricing h2 { margin-bottom: 2rem; }
-.pricing-cards { display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; }
-.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 260px; padding: 1.5rem; text-align: left; transition: transform 0.2s; }
-.card:hover { transform: translateY(-5px); }
-.card h3 { margin-top: 0; color: #831843; }
-.price { font-size: 1.8rem; font-weight: bold; margin: 1rem 0; color: #1e293b; }
-.card ul { list-style: none; padding: 0; margin: 1rem 0; }
-.card ul li { margin-bottom: 0.5rem; }
-.choose-btn { background: #fce7f3; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-.choose-btn:hover { background: #fbcfe8; }
-@media (max-width: 480px) {
-.card { width: 100%; max-width: 300px; }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定價方案 | FMTX AI 創新科技</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
 </head>
 <body>
-<header>
-<img src="logo.svg" alt="FMTX Logo" class="logo">
-<div class="title">
-<h1>FMTX AI 創新公司</h1>
-<p>AI 驅動的下一代雲端解決方案</p>
-</div>
+<header class="site-header">
+  <nav class="navbar">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">首頁</a></li>
+      <li><a href="games.html" class="nav-link">遊戲專區</a></li>
+      <li><a href="pricing.html" class="nav-link active">定價方案</a></li>
+      <li><a href="contact.html" class="nav-link">聯絡我們</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="選單">☰</button>
+  </nav>
 </header>
-
-<div class="layout">
-<aside class="sidebar">
-<h2>選單</h2>
-<a href='index.html' class='nav-link'>首頁</a>
-<a href='games.html' class='nav-link'>遊戲專區</a>
-<a href='pricing.html' class='nav-link active'>定價方案</a>
-<a href='power.html' class='nav-link'>電源工程師知識</a>
-</aside>
-
-<main class="main-content">
-...（僅顯示前 1500 字元，完整內容已省略）
-</main>
-
-<footer>
-<p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
-</footer>
+<main>
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <span class="hero-tag">定價方案</span>
+    <h1 class="hero-title">選擇適合您的方案</h1>
+    <p class="hero-desc">我們提供彈性且透明的定價，從個人開發者到大型企業，都能找到最適合的方案。</p>
+    <div class="hero-cta">
+      <a href="#pricing" class="btn btn-primary">查看方案</a>
+      <a href="#contact" class="btn btn-outline">聯絡我們</a>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <div class="section-title">
+      <h2>我們的方案</h2>
+      <p>根據您的需求選擇最合適的方案，隨時升級或降級。</p>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon">💎</div>
+        <h3 class="card-title">基礎方案</h3>
+        <p class="price"><span class="text-accent">NT$0</span> / 月</p>
+        <ul class="card-text">
+          <li>適合個人開發者</li>
+          <li>每月 10 小時運算時間</li>
+          <li>基礎 API 呼叫</li>
+          <li>社群支援</li>
+        </ul>
+        <a href="#" class="btn btn-primary">開始使用</a>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚀</div>
+        <h3 class="card-title">專業方案</h3>
+        <p class="price"><span class="text-accent">NT$499</span> / 月</p>
+        <ul class="card-text">
+          <
