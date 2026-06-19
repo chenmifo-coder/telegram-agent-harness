@@ -1,92 +1,81 @@
 <!DOCTYPE html>
-<html lang='zh-TW'>
+<html lang="zh-TW">
 <head>
-<meta charset='UTF-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>遊戲專區 - FMTX AI 創新公司</title>
-<link rel='stylesheet' href='style.css'>
-<style>
-/* Games page specific enhancements */
-:root {
-  --game-bg: #f8fafc;
-  --game-card-bg: #ffffff;
-  --game-primary: #6366f1;
-  --game-accent: #10b981;
-  --game-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  --game-shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
-  --game-radius: 12px;
-  --game-transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-}
-body { background: var(--game-bg); }
-.section-title {
-  text-align: center;
-  margin: 2.5rem 0 1.5rem;
-  font-size: 1.8rem;
-  color: var(--game-primary);
-  position: relative;
-}
-.section-title::after {
-  content: "";
-  display: block;
-  width: 60px;
-  height: 4px;
-  background: linear-gradient(90deg, #ec4899, #10b981);
-  margin: 0.5rem auto 0;
-  border-radius: 2px;
-}
-.game-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2.5rem;
-  justify-content: center;
-}
-.game-card {
-  background: var(--game-card-bg);
-  border-radius: var(--game-radius);
-  box-shadow: var(--game-shadow);
-  width: 280px;
-  padding: 1.8rem;
-  text-align: center;
-  transition: var(--game-transition);
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-}
-.game-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: var(--game-shadow-hover);
-}
-.game-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-...（僅顯示前 1500 字元，完整內容已省略）
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>遊戲專區 | FMTX AI 創新科技</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
 </head>
 <body>
-<header>
-<img src="logo.svg" alt="FMTX Logo" class="logo">
-<div class="title">
-<h1>FMTX AI 創新公司</h1>
-<p>AI 驅動的下一代雲端解決方案</p>
-</div>
-</header>
+  <header class="site-header">
+    <nav class="navbar">
+      <a class="nav-brand" href="index.html">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">首頁</a></li>
+        <li><a href="games.html" class="nav-link active">遊戲專區</a></li>
+        <li><a href="pricing.html" class="nav-link">定價方案</a></li>
+        <li><a href="contact.html" class="nav-link">聯絡我們</a></li>
+      </ul>
+      <button class="nav-toggle" aria-label="選單">☰</button>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="hero-bg"></div>
+      <div class="container">
+        <span class="hero-tag">遊戲專區</span>
+        <h1 class="hero-title">FMTX AI 遊戲體驗</h1>
+        <p class="hero-desc">探索我們精心打造的 AI 驅動遊戲，體驗前所未有的互動樂趣。</p>
+        <div class="hero-cta">
+          <a href="#games" class="btn btn-primary">開始遊玩</a>
+          <a href="#more" class="btn btn-outline">查看更多</a>
+        </div>
+      </div>
+    </section>
 
-<div class="layout">
-<aside class="sidebar">
-<h2>選單</h2>
-<a href='index.html' class='nav-link'>首頁</a>
-<a href='games.html' class='nav-link active'>遊戲專區</a>
-<a href='pricing.html' class='nav-link'>定價方案</a>
-<a href='power.html' class='nav-link'>電源工程師知識</a>
-</aside>
-
-<main class="main-content">
-...（僅顯示前 1500 字元，完整內容已省略）
-</main>
-
-<footer>
-<p> 2026 全雲端公司 | 由 AI Agent 自動維護</p>
-</footer>
+    <section>
+      <div class="container">
+        <div class="section-title">
+          <h2>熱門遊戲</h2>
+          <p>精選 AI 增強的遊戲作品</p>
+        </div>
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-icon">🎮</div>
+            <h3 class="card-title">AI 迷宮探險</h3>
+            <p class="card-text">透過程式生成的迷宮與 AI 對手對戰，考驗策略與反應。</p>
+            <a href="#" class="btn btn-primary">玩玩看</a>
+          </div>
+          <div class="card">
+            <div class="card-icon">🧩</div>
+            <h3 class="card-title">智慧益智填色</h3>
+            <p class="card-text">AI 即時建議配色與圖案，讓創作更流暢。</p>
+            <a href="#" class="btn btn-primary">玩玩看</a>
+          </div>
+          <div class="card">
+            <div class="card-icon">⚔️</div>
+            <h3 class="card-title">AI 戰術對戰</h3>
+            <p class="card-text">與 AI 司令官進行即時戰略對決，每局都有新挑戰。</p>
+            <a href="#" class="btn btn-primary">玩玩看</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-brand">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+      </div>
+      <p class="footer-desc">AI 驅動的下一代雲端解決方案</p>
+      <p class="footer-copy">© 2026 FMTX AI 創新科技股份有限公司</p>
+    </div>
+  </footer>
+</body>
+</html>
