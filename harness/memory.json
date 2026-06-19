@@ -26,6 +26,10 @@
     {
       "time": "2026-06-16 08:33 UTC",
       "note": "保持設計系統：主色 #6C63FF，背景 #0A0A1A，標題 Inter，內文 Noto Sans TC，Hero 標題下方加副標題"
+    },
+    {
+      "time": "2026-06-19 08:31 UTC",
+      "note": "已將 --bg-primary 設為 #0A0A1A，--primary-color 設為 #6C63FF，確保標題使用 Inter，內文使用 Noto Sans TC，並在所有 Hero 標題下方加入副標題。"
     }
   ],
   "change_log": [
@@ -76,6 +80,19 @@
       "summary": "修復index.html樣式遺失補回link與class",
       "files": [
         "index.html"
+      ]
+    },
+    {
+      "time": "2026-06-19 08:31 UTC",
+      "request": "修復網站架構",
+      "summary": "統一設計系統：色彩、字體與Hero副標題",
+      "files": [
+        "index.html",
+        "style.css",
+        "contact.html",
+        "games.html",
+        "power.html",
+        "pricing.html"
       ]
     }
   ]
