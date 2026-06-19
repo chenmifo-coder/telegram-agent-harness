@@ -3,77 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>聯絡我們 - 全雲端公司</title>
+  <title>聯絡我們 | FMTX AI 創新科技</title>
   <link rel="stylesheet" href="style.css">
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
 </head>
 <body>
-  <header>
-    <img src="logo.png" alt="公司標誌" class="logo">
-    <div class="title">
-      <h1>全雲端公司</h1>
-      <p>讓您的業務無縫雲端化</p>
+<header class="site-header">
+  <nav class="navbar">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">首頁</a></li>
+      <li><a href="games.html" class="nav-link">遊戲專區</a></li>
+      <li><a href="pricing.html" class="nav-link">定價方案</a></li>
+      <li><a href="contact.html" class="nav-link active">聯絡我們</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="選單">☰</button>
+  </nav>
+</header>
+<main>
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <span class="hero-tag">聯絡我們</span>
+    <h1 class="hero-title">FMTX AI 創新科技</h1>
+    <p class="hero-desc">有任何問題或需求，請填寫下表，我們會盡快回覆。</p>
+    <div class="hero-cta">
+      <a href="#contact-form" class="btn btn-primary">立即聯絡</a>
     </div>
-    <button id="theme-toggle" aria-label="切換深色/淡色主題">🌓</button>
-  </header>
+  </div>
+</section>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <h2>選單</h2>
-      <a href="index.html" class="nav-link">首頁</a>
-      <a href="about.html" class="nav-link">關於我們</a>
-      <a href="services.html" class="nav-link">服務項目</a>
-      <a href="contact.html" class="nav-link active">聯絡我們</a>
-    </aside>
-
-    <main class="main-content">
-      <section class="hero">
-        <div class="hero-content">
-          <h2>聯絡我們</h2>
-          <p>有任何問題或需求，請填寫下表，我們會盡快回覆。</p>
+<section id="contact-form-section" class="container">
+  <div class="card">
+    <h2 class="section-title" style="text-align:left; margin-bottom:24px;">
+      發送訊息
+    </h2>
+    <form id="contact-form">
+      <div class="grid-2">
+        <div>
+          <label for="name" class="form-label">姓名</label>
+          <input type="text" id="name" name="name" required class="form-input">
         </div>
-      </section>
-
-      <section>
-        <form id="contact-form" class="card">
-          <div>
-            <label for="name">姓名</label>
-            <input type="text" id="name" name="name" required>
-          </div>
-          <div>
-            <label for="email">電子郵件</label>
-            <input type="email" id="email" name="email" required>
-          </div>
-          <div>
-            <label for="subject">主題</label>
-            <input type="text" id="subject" name="subject" required>
-          </div>
-          <div>
-            <label for="message">訊息</label>
-            <textarea id="message" name="message" rows="5" required></textarea>
-          </div>
-          <button type="submit" class="cta-button">送出</button>
-        </form>
-        <div id="form-response" style="display:none; margin-top:1rem; color:#10b981; font-weight:600;"></div>
-      </section>
-    </main>
+        <div>
+          <label for="email" class="form-label">電子郵件</label>
+          <input type="email" id="email" name="email" required class="form-input">
+        </div>
+      </div>
+      <div>
+        <label for="subject" class="form-label">主題</label>
+        <input type="text" id="subject" name="subject" required class="form-input">
+      </div>
+      <div>
+        <label for="message" class="form-label">訊息</label>
+        <textarea id="message" name="message" rows="5" required class="form-input"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">送出訊息</button>
+    </form>
+    <div id="form-response" style="margin-top:16px; color:#00E676; font-weight:600; display:none;"></div>
   </div>
-
-  <footer>
-    <p>© 2025 全雲端公司。保留所有權利。</p>
-    <button class="contact-btn" id="show-modal">需要協助？點擊此處</button>
-  </footer>
-
-  <!-- 模態視窗 (簡單示範) -->
-  <div id="help-modal" class="modal">
-    <div class="modal-content">
-      <span class="close-btn">&times;</span>
-      <h3>需要即時協助</h3>
-      <p>請透過電話或 Email 聯繫我們的客服團隊。</p>
-      <p>電話：+886 2 1234 5678</p>
-      <p>Email：support@fullcloud.example.com</p>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
     </div>
+    <p class="footer-desc">AI 驅動的下一代雲端解決方案</p>
+    <p class="footer-copy">© 2026 FMTX AI 創新科技股份有限公司</p>
   </div>
-
-  <script src="script.js" defer></script>
+</footer>
+<script src="script.js" defer></script>
 </body>
 </html>
