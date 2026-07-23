@@ -1,3 +1,267 @@
+We need to output the full games.html file, adhering to the design system, using the fixed components: nav, hero, etc. The user wants to redesign the games area page and include at least one playable canvas game.
+
+We must follow the page skeleton: <!DOCTYPE html> ... with {{TITLE}}, {{EXTRA_HEAD}}, {{NAV}}, {{BODY}}, {{FOOTER}} placeholders? Actually the instruction says we must output the file content, not placeholders. We must replace those placeholders with actual content.
+
+We have the fixed nav HTML (with {{NAV_ITEMS}} replaced). We have fixed hero HTML (with placeholders). We have fixed footer HTML.
+
+We need to produce a complete HTML file that includes:
+
+- Head: meta charset, viewport, title, link to style.css, font preconnect (already in style.css? but we must include as per skeleton). Also include EXTRA_HEAD maybe empty.
+
+- Body: include the nav component (the fixed nav HTML with NAV_ITEMS replaced). Then main with body content: we need a hero section (using fixed hero HTML) then maybe a section for games with canvas game.
+
+- Then footer component.
+
+We must ensure we follow design system: colors, fonts, etc. Already style.css includes variables. We can rely on that.
+
+We need to embed a canvas game. Could be a simple snake, pong, or a clicker. Must be playable. Let's implement a simple "Catch the falling ball" or "Dodge the obstacles". Simpler: a moving paddle and ball (like Pong) where user controls paddle with mouse or arrow keys to bounce ball. Or a simple "Clicker" where you click moving target.
+
+Given we need at least one playable game, we can implement a simple "Avoid the falling squares" where player moves a square left/right with arrow keys to avoid falling squares. Or a "Flappy Bird" style.
+
+Let's implement a simple "Dodge the falling squares": canvas, player square at bottom controlled by left/right arrow keys, falling squares from top; if collision, game over; show score.
+
+We'll need to include script inside the page.
+
+We must ensure we don't break any design rules: use proper classes, etc.
+
+We need to include hero section: maybe hero tag "遊戲專區", hero title "AI 驅動的互動遊戲", hero desc "體驗由 AI 生成的獨特遊戲，直接在瀏覽器中玩樂。", hero CTA maybe a button "開始遊戲" that scrolls to game section.
+
+But note: The hero component is fixed; we must use the fixed hero HTML with placeholders replaced. So we need to provide values for {{HERO_TAG}}, {{HERO_TITLE}}, {{HERO_DESC}}, {{HERO_CTA}}.
+
+We'll set:
+
+- HERO_TAG: "遊戲專區"
+- HERO_TITLE: "AI 驅動的互動遊戲"
+- HERO_DESC: "體驗由 AI 生成的獨特遊戲，直接在瀏覽器中玩樂。"
+- HERO_CTA: maybe a button: <a href="#game-section" class="btn btn-primary">開始遊戲</a>
+
+We need to ensure the hero section uses the fixed HTML.
+
+After hero, we can add a section with id="game-section" containing the canvas game and description.
+
+We must use container class etc.
+
+We need to ensure we include the nav component exactly as given, with NAV_ITEMS replaced.
+
+Let's craft the nav:
+
+<header class="site-header">
+  <nav class="navbar">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">首頁</a></li>
+      <li><a href="games.html" class="nav-link active">遊戲專區</a></li>
+      <li><a href="pricing.html" class="nav-link">定價方案</a></li>
+      <li><a href="contact.html" class="nav-link">聯絡我們</a></li>
+    </ul>
+    <button class="nav-toggle" aria-label="選單">☰</button>
+  </nav>
+</header>
+
+Now hero:
+
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <span class="hero-tag">遊戲專區</span>
+    <h1 class="hero-title">AI 驅動的互動遊戲</h1>
+    <p class="hero-desc">體驗由 AI 生成的獨特遊戲，直接在瀏覽器中玩樂。</p>
+    <div class="hero-cta">
+      <a href="#game-section" class="btn btn-primary">開始遊戲</a>
+    </div>
+  </div>
+</section>
+
+Now main content after hero: we can have a section with id="game-section", maybe with a title and description, then the canvas.
+
+We need to follow design: use section padding etc. We'll just put inside main after hero.
+
+We'll add:
+
+<section id="game-section" style="padding:80px 0;">
+  <div class="container">
+    <h2 class="section-title">躲避方塊</h2>
+    <p class="text-secondary text-center" style="max-width:600px;margin:0 auto 24px;">使用左右方向鍵移動底部的方塊，避免被落下的方塊擊中。每躲過一塊得一分。</p>
+    <div id="game-card" style="text-align:center;">
+      <canvas id="gameCanvas" width="800" height="450">Your browser does not support the canvas element.</canvas>
+    </div>
+    <p class="text-secondary text-center" style="margin-top:1.5rem;">得分：<span id="score">0</span></p>
+    <p class="text-secondary text-center" style="margin-top:0.5rem;" id="gameOverMsg"></p>
+  </div>
+</section>
+
+We need to ensure the canvas has appropriate styling: maybe we add a style block for #gameCanvas similar to previous: background: var(--bg-card); border: 1px solid var(--border); width:100%; max-width:800px; height:450px; display:block; margin:0 auto; cursor:crosshair;
+
+But we can also rely on style.css .card? Not needed. We'll add inline style or a <style> block in head extra.
+
+We have EXTRA_HEAD placeholder; we can put extra styles there.
+
+Let's add in EXTRA_HEAD:
+
+<style>
+  #gameCanvas {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 800px;
+    height: 450px;
+    display: block;
+    margin: 0 auto;
+    cursor: crosshair;
+  }
+</style>
+
+Now we need to implement game logic in script.
+
+We'll put a script at end of body before footer.
+
+Game: player square size 40x40 at bottom center, moving left/right with arrow keys (speed 8). Falling squares size 30x30, spawn at random x at top, fall speed increasing with score.
+
+Collision detection: AABB.
+
+Game over: show message, stop loop.
+
+We'll need to keep track of score.
+
+Implement requestAnimationFrame loop.
+
+We'll need to resize canvas on window resize.
+
+Let's craft script.
+
+We'll put:
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvas() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  const player = {
+    w: 40,
+    h: 40,
+    x: canvas.width/2 - 20,
+    y: canvas.height - 40 - 10,
+    speed: 8,
+    dx: 0
+  };
+  const obstacles = [];
+  const obstacleSize = 30;
+  let spawnTimer = 0;
+  const spawnInterval = 90; // frames
+  let score = 0;
+  let gameOver = false;
+  let obstacleBaseSpeed = 2;
+  let obstacleSpeedIncrement = 0.001; // per frame
+
+  function spawnObstacle() {
+    const x = Math.random() * (canvas.width - obstacleSize);
+    obstacles.push({ x, y: -obstacleSize, w: obstacleSize, h: obstacleSize });
+  }
+
+  function update() {
+    if (gameOver) return;
+    // player movement
+    player.x += player.dx;
+    if (player.x < 0) player.x = 0;
+    if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+
+    // spawn
+    spawnTimer++;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnObstacle();
+    }
+
+    // update obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const o = obstacles[i];
+      o.y += obstacleBaseSpeed + score * obstacleSpeedIncrement;
+      // check collision
+      if (
+        player.x < o.x + o.w &&
+        player.x + player.w > o.x &&
+        player.y < o.y + o.h &&
+        player.y + player.h > o.y
+      ) {
+        gameOver = true;
+        break;
+      }
+      // remove if off screen
+      if (o.y > canvas.height) {
+        obstacles.splice(i, 1);
+        score++;
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // player
+    ctx.fillStyle = '#6C63FF'; // accent
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    // obstacles
+    ctx.fillStyle = '#FF5252'; // error color
+    for (const o of obstacles) {
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
+    // score
+    ctx.fillStyle = '#E8E8F0';
+    ctx.font = '18px Inter';
+    ctx.textAlign = 'left';
+    ctx.fillText(`得分: ${score}`, 20, 30);
+    if (gameOver) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#FFB300'; // warning
+      ctx.font = '24px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('遊戲結束', canvas.width/2, canvas.height/2 - 20);
+      ctx.font = '18px Inter';
+      ctx.fillText(`最終得分: ${score}`, canvas.width/2, canvas.height/2 + 10);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // controls
+  document.addEventListener('keydown', e => {
+    if (gameOver) return;
+    if (e.key === 'ArrowLeft') player.dx = -player.speed;
+    if (e.key === 'ArrowRight') player.dx = player.speed;
+  });
+  document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') player.dx = 0;
+  });
+
+  loop();
+</script>
+
+We need to ensure we use proper variable names.
+
+Now we need to embed this script after the game section but before footer.
+
+Now we need to produce final HTML.
+
+We must include the EXTRA_HEAD style for canvas.
+
+Now we need to place the nav, hero, main content (including game section), footer.
+
+We must ensure we include the container wrapper etc.
+
+Let's assemble:
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -8,8 +272,6 @@
   <link rel='preconnect' href='https://fonts.googleapis.com'>
   <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
   <style>
-    /* Extra styles for game */
-    #game-card { text-align:center; }
     #gameCanvas {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -39,13 +301,27 @@
     </nav>
   </header>
   <main>
-    <section>
+    <section class="hero">
+      <div class="hero-bg"></div>
       <div class="container">
-        <h2 class="section-title">遊戲專區</h2>
-        <div id="game-card">
+        <span class="hero-tag">遊戲專區</span>
+        <h1 class="hero-title">AI 驅動的互動遊戲</h1>
+        <p class="hero-desc">體驗由 AI 生成的獨特遊戲，直接在瀏覽器中玩樂。</p>
+        <div class="hero-cta">
+          <a href="#game-section" class="btn btn-primary">開始遊戲</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="game-section">
+      <div class="container">
+        <h2 class="section-title">躲避方塊</h2>
+        <p class="text-secondary text-center" style="max-width:600px;margin:0 auto 24px;">使用左右方向鍵移動底部的方塊，避免被落下的方塊擊中。每躲過一塊得一分。</p>
+        <div id="game-card" style="text-align:center;">
           <canvas id="gameCanvas">Your browser does not support the canvas element.</canvas>
         </div>
-        <p class="text-secondary text-center" style="margin-top:1.5rem;">使用方向鍵控制角色，享受 AI 驅動的互動體驗。</p>
+        <p class="text-secondary text-center" style="margin-top:1.5rem;">得分：<span id="score">0</span></p>
+        <p class="text-secondary text-center" style="margin-top:0.5rem;" id="gameOverMsg"></p>
       </div>
     </section>
   </main>
@@ -68,18 +344,48 @@
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
-    // Simple animated square
-    let x = 50, y = 50, dx = 2, dy = 2;
-    function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle = '#6C63FF'; // accent color
-      ctx.fillRect(x, y, 50, 50);
-      if (x + dx > canvas.width-50 || x + dx < 0) dx = -dx;
-      if (y + dy > canvas.height-50 || y + dy < 0) dy = -dy;
-      x += dx; y += dy;
-      requestAnimationFrame(draw);
+
+    const player = {
+      w: 40,
+      h: 40,
+      x: canvas.width/2 - 20,
+      y: canvas.height - 40 - 10,
+      speed: 8,
+      dx: 0
+    };
+    const obstacles = [];
+    const obstacleSize = 30;
+    let spawnTimer = 0;
+    const spawnInterval = 90; // frames
+    let score = 0;
+    let gameOver = false;
+    let obstacleBaseSpeed = 2;
+    let obstacleSpeedIncrement = 0.001; // per frame
+
+    function spawnObstacle() {
+      const x = Math.random() * (canvas.width - obstacleSize);
+      obstacles.push({ x, y: -obstacleSize, w: obstacleSize, h: obstacleSize });
     }
-    draw();
-  </script>
-</body>
-</html>
+
+    function update() {
+      if (gameOver) return;
+      // player movement
+      player.x += player.dx;
+      if (player.x < 0) player.x = 0;
+      if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+
+      // spawn
+      spawnTimer++;
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        spawnObstacle();
+      }
+
+      // update obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const o = obstacles[i];
+        o.y += obstacleBaseSpeed + score * obstacleSpeedIncrement;
+        // check collision
+        if (
+          player.x < o.x + o.w &&
+          player.x + player.w > o.x &&
