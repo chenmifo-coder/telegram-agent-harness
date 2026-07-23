@@ -3,9 +3,6 @@
   "style": "tech-dark",
   "design_decisions": [
     {
-      "note": "固定元件：導覽列 nav、Hero 區塊"
-    },
-    {
       "time": "2026-06-16 07:39 UTC",
       "note": "根據科技感深色風格主色 #6C63FF、背景 #0A0A1A，標題使用 Inter，內文使用 Noto Sans TC，僅在 Hero 標題下方插入副標題，不影響導覽列或其他區塊"
     },
@@ -40,6 +37,10 @@
     {
       "time": "2026-07-23 09:47 UTC",
       "note": "保持 Canvas 背景黑色，但不蓋住頁面其他內容"
+    },
+    {
+      "time": "2026-07-23 09:51 UTC",
+      "note": "保持現有設計系統變數，在 games.html 中加入黑色背景 Canvas 遊戲區塊"
     }
   ],
   "change_log": [
@@ -192,6 +193,14 @@
       "time": "2026-07-23 09:47 UTC",
       "request": "請修復遊戲專區,目前不良現象是全黑畫面完全沒有任何文字圖片",
       "summary": "修復遊戲專區黑屏，確保內容可見",
+      "files": [
+        "games.html"
+      ]
+    },
+    {
+      "time": "2026-07-23 09:51 UTC",
+      "request": "請重新設計遊戲專區網頁,並至少有一個遊戲可以玩",
+      "summary": "重新設計遊戲專區頁面並加入可玩的 Canvas 小遊戲",
       "files": [
         "games.html"
       ]
