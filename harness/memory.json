@@ -34,6 +34,10 @@
     {
       "time": "2026-07-23 09:26 UTC",
       "note": "已確保所有 Hero 標題下方加入副標題，保持主色 #6C63FF、背景 #0A0A1A、標題 Inter、內文 Noto Sans TC"
+    },
+    {
+      "time": "2026-07-23 09:32 UTC",
+      "note": "使用 HTML5 Canvas 實作簡單互動遊戲，保持現有設計系統與變數。"
     }
   ],
   "change_log": [
@@ -164,6 +168,14 @@
         "power.html",
         "pricing.html",
         "style.css"
+      ]
+    },
+    {
+      "time": "2026-07-23 09:32 UTC",
+      "request": "遊戲專區需要一個真的可以玩的遊戲",
+      "summary": "在遊戲專區加入可直接玩的小遊戲",
+      "files": [
+        "games.html"
       ]
     }
   ]
