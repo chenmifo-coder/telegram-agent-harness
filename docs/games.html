@@ -11,13 +11,14 @@
     /* Extra styles for game */
     #game-card { text-align:center; }
     #gameCanvas {
-      background: #000;
+      background: var(--bg-card);
       border: 1px solid var(--border);
       width: 100%;
       max-width: 800px;
       height: 450px;
       display: block;
       margin: 0 auto;
+      cursor: crosshair;
     }
   </style>
 </head>
@@ -42,7 +43,7 @@
       <div class="container">
         <h2 class="section-title">遊戲專區</h2>
         <div id="game-card">
-          <canvas id="gameCanvas"></canvas>
+          <canvas id="gameCanvas">Your browser does not support the canvas element.</canvas>
         </div>
         <p class="text-secondary text-center" style="margin-top:1.5rem;">使用方向鍵控制角色，享受 AI 驅動的互動體驗。</p>
       </div>
@@ -58,5 +59,27 @@
       <p class="footer-copy">© 2026 FMTX AI 創新科技股份有限公司</p>
     </div>
   </footer>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    // Simple animated square
+    let x = 50, y = 50, dx = 2, dy = 2;
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#6C63FF'; // accent color
+      ctx.fillRect(x, y, 50, 50);
+      if (x + dx > canvas.width-50 || x + dx < 0) dx = -dx;
+      if (y + dy > canvas.height-50 || y + dy < 0) dy = -dy;
+      x += dx; y += dy;
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
 </body>
 </html>
