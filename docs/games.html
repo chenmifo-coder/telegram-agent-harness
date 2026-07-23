@@ -7,71 +7,9 @@
   <link rel="stylesheet" href="style.css">
   <link rel='preconnect' href='https://fonts.googleapis.com'>
   <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap' rel='stylesheet'>
-</head>
-<body>
-  <header class="site-header">
-    <nav class="navbar">
-      <a class="nav-brand" href="index.html">
-        <span class="brand-icon">⬡</span>
-        <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="index.html" class="nav-link">首頁</a></li>
-        <li><a href="games.html" class="nav-link active">遊戲專區</a></li>
-        <li><a href="pricing.html" class="nav-link">定價方案</a></li>
-        <li><a href="contact.html" class="nav-link">聯絡我們</a></li>
-      </ul>
-      <button class="nav-toggle" aria-label="選單">☰</button>
-    </nav>
-  </header>
-  <main>
-    <section class="hero">
-      <div class="hero-bg"></div>
-      <div class="container">
-        <span class="hero-tag">遊戲專區</span>
-        <h1 class="hero-title">FMTX AI 遊戲體驗</h1>
-        <p class="hero-subtitle text-secondary">體驗創新與樂趣的完美結合</p>
-        <p class="hero-desc">探索我們精心打造的 AI 驅動遊戲，體驗前所未有的互動樂趣。</p>
-        <div class="hero-cta">
-          <a href="#games" class="btn btn-primary">開始遊玩</a>
-          <a href="#more" class="btn btn-outline">查看更多</a>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="container">
-        <div class="section-title">
-          <h2>熱門遊戲</h2>
-          <p>精選 AI 增強的遊戲作品</p>
-        </div>
-        <div class="grid-3">
-          <div class="card">
-            <div class="card-icon">🎮</div>
-            <h3 class="card-title">AI 迷宮探險</h3>
-            <p class="card-text">透過程式生成的迷宮與 AI 對手對戰，考驗策略與反應。</p>
-            <a href="#" class="btn btn-primary">玩玩看</a>
-          </div>
-          <div class="card">
-            <div class="card-icon">🧩</div>
-            <h3 class="card-title">智慧益智填色</h3>
-            <p class="card-text">AI 即時建議配色與圖案，讓創作更流暢。</p>
-            <a href="#" class="btn btn-primary">玩玩看</a>
-          </div>
-          <div class="card">
-            <div class="card-icon">⚔️</div>
-            <h3 class="card-title">AI 戰術對戰</h3>
-            <p class="card-text">與 AI 司令官進行即時戰略對決，每局都有新挑戰。</p>
-            <a href="#" class="btn btn-primary">玩玩看</a>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-brand">
-        <span class="brand-icon">⬡</span>
-        <span class="brand-name">FMTX<span class="brand-accent"> AI</span></span>
-      </div>
-      <p class="footer-desc
+  <style>
+    /* Extra styles for game */
+    #game-card { text-align:center; }
+    #gameCanvas {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
