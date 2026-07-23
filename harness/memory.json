@@ -30,6 +30,10 @@
     {
       "time": "2026-06-19 08:31 UTC",
       "note": "已將 --bg-primary 設為 #0A0A1A，--primary-color 設為 #6C63FF，確保標題使用 Inter，內文使用 Noto Sans TC，並在所有 Hero 標題下方加入副標題。"
+    },
+    {
+      "time": "2026-07-23 09:26 UTC",
+      "note": "已確保所有 Hero 標題下方加入副標題，保持主色 #6C63FF、背景 #0A0A1A、標題 Inter、內文 Noto Sans TC"
     }
   ],
   "change_log": [
@@ -148,6 +152,19 @@
       "request": "網站架構有幾種可以選擇?",
       "summary": "說明網站架構選項數量",
       "files": []
+    },
+    {
+      "time": "2026-07-23 09:26 UTC",
+      "request": "目前的網頁真的設計得太爛了,請更新所有網頁",
+      "summary": "更新所有頁面，加入副標題並統一設計",
+      "files": [
+        "index.html",
+        "contact.html",
+        "games.html",
+        "power.html",
+        "pricing.html",
+        "style.css"
+      ]
     }
   ]
 }
