@@ -3,9 +3,6 @@
   "style": "tech-dark",
   "design_decisions": [
     {
-      "note": "確定使用科技感深色風格，主色 #6C63FF，背景 #0A0A1A"
-    },
-    {
       "note": "字體：標題 Inter，內文 Noto Sans TC"
     },
     {
@@ -38,6 +35,10 @@
     {
       "time": "2026-07-23 09:32 UTC",
       "note": "使用 HTML5 Canvas 實作簡單互動遊戲，保持現有設計系統與變數。"
+    },
+    {
+      "time": "2026-07-23 09:44 UTC",
+      "note": "在 games.html 中加入 inline style 或 class 將背景設為 #000000，保持現有設計系統不變"
     }
   ],
   "change_log": [
@@ -174,6 +175,14 @@
       "time": "2026-07-23 09:32 UTC",
       "request": "遊戲專區需要一個真的可以玩的遊戲",
       "summary": "在遊戲專區加入可直接玩的小遊戲",
+      "files": [
+        "games.html"
+      ]
+    },
+    {
+      "time": "2026-07-23 09:44 UTC",
+      "request": "遊戲專區變全黑畫面,請修改",
+      "summary": "將遊戲專區頁面背景改為全黑",
       "files": [
         "games.html"
       ]
